@@ -1,0 +1,17 @@
+---
+description: After code changes, keep INTERVIEW-technical-challenge-pitch.md accurate
+globs: projects/flow-prompt-studio/**/*
+alwaysApply: false
+---
+
+# Flow Prompt Studio: interview pitch must track the code
+
+Whenever you add, remove, or meaningfully change **behavior, architecture, tests, or user-facing features** in this project (including `src/`, `server/`, `package.json` scripts, Vitest, deployment), **in the same task** update [`INTERVIEW-technical-challenge-pitch.md`](INTERVIEW-technical-challenge-pitch.md) so it stays a truthful prep doc.
+
+**Sync at least these sections** when something relevant moves:
+
+- **What was actually hard** (§3 run lifecycle, partial runs, cache, API, streaming).
+- **~60–90 seconds / ~3 minutes** (proof line: test and feature names must match the repo).
+- **Resume line** and **What you can credibly say *today***, if capabilities or tests changed.
+
+**Do not** leave outdated claims (e.g. old cache mechanism, wrong test list, or features that were removed) in the interview file. If a change is too small to matter for interviews (pure refactor, no behavior), a one-line “last reviewed” note in the file footer is optional; when in doubt, **update the pitch**.

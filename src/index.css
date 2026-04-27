@@ -1,0 +1,1121 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+/* ── GraphEditor ── */
+
+.right-panels {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-width: min(300px, 40vw);
+  flex-shrink: 0;
+  border-left: 1px solid #313244;
+  background: #11111b;
+  z-index: 50;
+}
+
+.node-inspector {
+  flex-shrink: 0;
+  padding: 10px 14px 12px;
+  border-bottom: 1px solid #313244;
+  background: #181825;
+  color: #cdd6f4;
+  font-size: 12px;
+}
+
+.node-inspector-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #89b4fa;
+  margin: 0 0 6px;
+}
+
+.node-inspector-meta {
+  font-size: 10px;
+  color: #6c7086;
+  margin-bottom: 8px;
+  word-break: break-all;
+}
+
+.node-inspector-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.node-inspector-field span {
+  font-size: 9px;
+  text-transform: uppercase;
+  color: #6c7086;
+  font-weight: 600;
+}
+
+.node-inspector-hint {
+  font-size: 11px;
+  color: #6c7086;
+  line-height: 1.4;
+}
+
+.run-result-runid {
+  font-size: 9px;
+  color: #6c7086;
+}
+
+.error-boundary {
+  padding: 32px;
+  max-width: 480px;
+  margin: 40px auto;
+  background: #1e1e2e;
+  border: 1px solid #f38ba8;
+  border-radius: 8px;
+  color: #cdd6f4;
+}
+
+.error-boundary-title {
+  color: #f38ba8;
+  margin: 0 0 8px;
+}
+
+.error-boundary-msg {
+  font-size: 12px;
+  white-space: pre-wrap;
+  margin-bottom: 16px;
+  color: #a6adc8;
+}
+
+.auth-gate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 32px;
+  background: #11111b;
+  color: #cdd6f4;
+  font-size: 13px;
+}
+
+.auth-gate-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #89b4fa;
+  margin-bottom: 12px;
+}
+
+.auth-gate-body {
+  max-width: 420px;
+  line-height: 1.5;
+  margin-bottom: 16px;
+  color: #a6adc8;
+}
+
+.auth-gate-body code {
+  font-size: 11px;
+  color: #fab387;
+}
+
+.auth-gate-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(320px, 100%);
+}
+
+.auth-gate-input {
+  padding: 10px 12px;
+  border-radius: 6px;
+  border: 1px solid #45475a;
+  background: #181825;
+  color: #cdd6f4;
+  font-size: 14px;
+}
+
+.auth-gate-button {
+  padding: 10px 16px;
+  border-radius: 6px;
+  border: none;
+  background: #89b4fa;
+  color: #11111b;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.auth-gate-button:hover {
+  filter: brightness(1.05);
+}
+
+.auth-gate-error {
+  margin-top: 12px;
+  color: #f38ba8;
+  font-size: 12px;
+}
+
+.graph-editor {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  position: relative;
+}
+
+.skip-link {
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  z-index: 200;
+  padding: 6px 10px;
+  background: #1e1e2e;
+  color: #89b4fa;
+  border: 1px solid #45475a;
+  border-radius: 4px;
+  font-size: 12px;
+  text-decoration: none;
+  transform: translateY(-120%);
+  transition: transform 0.12s ease;
+}
+.skip-link:focus {
+  transform: translateY(0);
+  outline: 2px solid #89b4fa;
+  outline-offset: 2px;
+}
+
+.graph-editor-main {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.graph-editor-empty {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+  text-align: center;
+  background: rgba(17, 17, 27, 0.88);
+  pointer-events: auto;
+}
+
+.graph-editor-empty-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #cdd6f4;
+}
+
+.graph-editor-empty-hint {
+  font-size: 12px;
+  color: #6c7086;
+  max-width: 320px;
+  line-height: 1.45;
+}
+
+.graph-editor-empty-cta {
+  margin-top: 4px;
+}
+
+.graph-editor-empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 4px;
+}
+
+/* ── Viewport ── */
+
+.viewport {
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+  background-color: #11111b;
+  background-image: radial-gradient(circle, #313244 1px, transparent 1px);
+  background-size: 24px 24px;
+  cursor: default;
+}
+
+/* Nodes/ports must paint above edge curves so input/output hits aren’t
+   lost to the SVG (especially for nodes placed in the view centre under long wires). */
+.graph-layer {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  will-change: transform;
+}
+
+/* ── NodeComponent ── */
+
+.node {
+  position: absolute;
+  top: 0;
+  left: 0;
+  background: #1e1e2e;
+  border: 1px solid #44475a;
+  border-radius: 6px;
+  font-size: 12px;
+  color: #cdd6f4;
+  cursor: grab;
+  user-select: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  will-change: transform;
+}
+
+.node.selected {
+  border-color: #89b4fa;
+  box-shadow: 0 0 0 1px #89b4fa, 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+/* Extra ring when a field inside the node is focused (e.g. prompt textarea) */
+.node.selected:focus-within {
+  outline: 2px solid rgba(137, 180, 250, 0.45);
+  outline-offset: 1px;
+}
+
+.node-header {
+  background: #313244;
+  padding: 6px 10px;
+  border-radius: 5px 5px 0 0;
+  font-weight: 600;
+  font-size: 11px;
+  color: #cba6f7;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.node-header-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+
+.node-widget {
+  padding: 0 8px 8px;
+  border-bottom: 1px solid #313244;
+  pointer-events: auto;
+}
+
+.node-widget-label {
+  display: block;
+  font-size: 9px;
+  font-weight: 600;
+  color: #6c7086;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 4px;
+}
+
+.node-widget-textarea {
+  width: 100%;
+  min-height: 64px;
+  padding: 6px 8px;
+  font-size: 11px;
+  line-height: 1.35;
+  color: #cdd6f4;
+  background: #11111b;
+  border: 1px solid #313244;
+  border-radius: 4px;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.node-widget-textarea:focus {
+  outline: none;
+  border-color: #89b4fa;
+}
+
+.node-widget-textarea--sm {
+  min-height: 44px;
+}
+
+.node-widget-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  font-size: 11px;
+  line-height: 1.35;
+  color: #cdd6f4;
+  background: #11111b;
+  border: 1px solid #313244;
+  border-radius: 4px;
+  font-family: inherit;
+}
+
+.node-widget-input:focus {
+  outline: none;
+  border-color: #89b4fa;
+}
+
+.node-widget-input--narrow {
+  width: auto;
+  min-width: 3.5rem;
+  max-width: 5.5rem;
+  flex: 0 0 auto;
+}
+
+.node-widget-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 8px;
+  row-gap: 4px;
+  margin-bottom: 6px;
+}
+
+.node-widget-row .node-widget-label {
+  display: inline;
+  margin-bottom: 0;
+  text-transform: none;
+  font-size: 9px;
+}
+
+.node-widget-retrieve-hits {
+  padding-top: 4px;
+}
+
+.retrieve-hit-list {
+  margin: 4px 0 0;
+  padding: 0 0 0 1rem;
+  font-size: 10px;
+  line-height: 1.35;
+  color: #bac2de;
+  list-style: disc;
+}
+
+.retrieve-hit-list li {
+  margin-bottom: 2px;
+}
+
+.retrieve-hit-cite {
+  display: inline-block;
+  min-width: 1.6rem;
+  font-variant-numeric: tabular-nums;
+  color: #f9e2af;
+  margin-right: 4px;
+}
+
+.retrieve-hit-score {
+  display: inline-block;
+  min-width: 3.2rem;
+  font-variant-numeric: tabular-nums;
+  color: #a6e3a1;
+  margin-right: 6px;
+}
+
+.retrieve-hit-source {
+  color: #6c7086;
+}
+
+.node-widget--readonly {
+  user-select: text;
+  cursor: text;
+}
+
+.node-output-preview {
+  margin: 0;
+  padding: 6px 8px;
+  max-height: 180px;
+  overflow: auto;
+  font-size: 11px;
+  line-height: 1.35;
+  color: #cdd6f4;
+  background: #11111b;
+  border: 1px solid #313244;
+  border-radius: 4px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.node-output-preview-hint {
+  margin: 0;
+  font-size: 11px;
+  color: #6c7086;
+  line-height: 1.4;
+  padding: 4px 0;
+}
+
+/* ── Execution state — node border colors ── */
+
+.node.status-queued  { opacity: 0.55; }
+.node.status-running { border-color: #89b4fa; box-shadow: 0 0 0 1px #89b4fa, 0 0 8px rgba(137,180,250,0.3); }
+.node.status-done    { border-color: #a6e3a1; box-shadow: 0 0 0 1px #a6e3a1; }
+.node.status-error   { border-color: #f38ba8; box-shadow: 0 0 0 1px #f38ba8; }
+
+/* ── Status dot in node header ── */
+
+.status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: transparent;
+}
+.status-dot-idle    { background: transparent; }
+.status-dot-queued  { background: #6c7086; }
+.status-dot-running { background: #89b4fa; animation: pulse 0.9s ease-in-out infinite; }
+.status-dot-done    { background: #a6e3a1; }
+.status-dot-error   { background: #f38ba8; }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
+}
+
+/* ── Progress bar ── */
+
+.node-progress {
+  height: 3px;
+  background: #313244;
+}
+
+.node-progress-bar {
+  height: 100%;
+  background: #89b4fa;
+  transition: width 0.1s linear;
+}
+
+/* ── Output summary strip ── */
+
+.node-output-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px 8px;
+  border-bottom: 1px solid #313244;
+}
+
+.output-tag {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  background: #1e1e2e;
+  border: 1px solid #a6e3a1;
+  color: #a6e3a1;
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+/* ── Error strip ── */
+
+.node-error {
+  font-size: 10px;
+  color: #f38ba8;
+  padding: 4px 8px;
+  border-bottom: 1px solid #313244;
+  word-break: break-word;
+}
+
+.node-body {
+  display: flex;
+  justify-content: space-between;
+  /* Vertically center input vs output rows (same “lane”) */
+  align-items: center;
+  padding: 6px 0;
+  gap: 8px;
+  width: 100%;
+}
+
+.ports {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.port-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 0;
+  min-height: 20px;
+}
+
+/* Left: [port][label] tight to the outer-left edge of the node */
+.ports-input .port-row {
+  justify-content: flex-start;
+  width: 100%;
+}
+
+/* Right: [label][port] as a tight group, aligned to the outer-right of the node */
+.port-row-output {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  width: max-content;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding-right: 0;
+}
+
+.ports-input {
+  padding-left: 0;
+  align-items: flex-start;
+}
+
+.ports-output {
+  padding-right: 0;
+  align-items: flex-end; /* in column layout: each row is hugged to the right edge */
+}
+
+.port-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid #6c7086;
+  background: #313244;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.port-dot-input {
+  margin-left: -5px;
+}
+
+.port-dot-output {
+  margin-right: -5px;
+}
+
+.port-label {
+  color: #a6adc8;
+  font-size: 11px;
+  padding: 0 6px;
+  white-space: nowrap;
+}
+
+/* ── EdgeLayer ── */
+
+.edge-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+}
+
+/* Below .graph-layer (z-2) so port dots receive pointer events. Edge paths
+   still register in empty space between nodes. */
+.edge-layer-interactive,
+.edge-layer {
+  z-index: 1;
+}
+
+/* Draft wire: draw on top of nodes; pointer-events stay none (hits pass through). */
+.wire-draft-layer {
+  z-index: 3;
+  pointer-events: none;
+}
+
+.edge-path {
+  stroke: #89b4fa;
+  opacity: 0.7;
+  pointer-events: none;
+  transition: opacity 0.1s;
+}
+
+.wire-draft {
+  stroke: #a6e3a1;
+  stroke-width: 2;
+  stroke-dasharray: 6 4;
+  opacity: 0.9;
+  pointer-events: none;
+}
+
+.edge-path-hit {
+  pointer-events: stroke;
+  cursor: pointer;
+}
+
+/* Visible Comfy/edge lines only: draft wire is .wire-draft and must stay
+   pointer-events: none (see .wire-draft) or pointerup will hit the draft path
+   and never reach [data-input-port] below. */
+.edge-path:not(.edge-path-hit):not(.wire-draft) {
+  pointer-events: stroke;
+}
+
+.edge-path-selected {
+  stroke: #f9e2af;
+  stroke-width: 2.5;
+  opacity: 1;
+}
+
+.edge-path:hover {
+  opacity: 1;
+}
+
+.marquee-rect {
+  z-index: 200;
+  border: 1px solid rgba(137, 180, 250, 0.8);
+  background: rgba(137, 180, 250, 0.12);
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .node-progress-bar,
+  .status-dot,
+  .edge-path {
+    transition: none;
+  }
+}
+
+/* ── Toolbar ── */
+
+.toolbar {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  max-width: min(96vw, 1100px);
+  background: #1e1e2e;
+  border: 1px solid #313244;
+  border-radius: 8px;
+  padding: 8px 14px 10px;
+  z-index: 100;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+  font-size: 12px;
+  color: #cdd6f4;
+}
+
+.toolbar-upper {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+  justify-content: center;
+}
+
+.toolbar-title {
+  font-weight: 700;
+  color: #cba6f7;
+  font-size: 13px;
+  margin-right: 4px;
+}
+
+.toolbar-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn {
+  background: #313244;
+  border: 1px solid #44475a;
+  color: #cdd6f4;
+  padding: 4px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 11px;
+  transition: background 0.15s;
+  display: inline-flex;
+  align-items: center;
+}
+
+.btn:hover {
+  background: #45475a;
+}
+
+.toolbar-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  color: #6c7086;
+  font-size: 11px;
+  padding-left: 8px;
+  border-left: 1px solid #313244;
+}
+
+.toolbar-node-palette {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding-top: 2px;
+  border-top: 1px solid #313244;
+}
+
+.toolbar-node-palette-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #6c7086;
+  margin-right: 2px;
+}
+
+.btn-palette {
+  padding: 3px 8px;
+  font-size: 10px;
+}
+
+.btn-run {
+  background: #1e3a2f;
+  border-color: #a6e3a1;
+  color: #a6e3a1;
+  font-weight: 600;
+}
+
+.btn-run:hover:not(:disabled) {
+  background: #2a4f40;
+}
+
+.btn-run:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-run.btn-run-active {
+  background: #1a2b3e;
+  border-color: #89b4fa;
+  color: #89b4fa;
+}
+
+.run-status {
+  font-weight: 600;
+  font-size: 11px;
+}
+
+.run-status-active { color: #89b4fa; }
+.run-status-done   { color: #a6e3a1; }
+.run-status-error  { color: #f38ba8; }
+
+/* ── Run result panel ── */
+
+.run-result-panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  background: #181825;
+  color: #cdd6f4;
+  font-size: 12px;
+  overflow: auto;
+}
+
+.run-result-panel-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.run-result-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #cba6f7;
+  margin: 0;
+}
+
+.run-result-header-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.btn-sm {
+  padding: 3px 8px;
+  font-size: 10px;
+}
+
+.run-result-status {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 4px;
+  width: fit-content;
+}
+
+.run-result-status--idle { background: #313244; color: #a6adc8; }
+.run-result-status--running { background: #1a2b3e; color: #89b4fa; }
+.run-result-status--ok { background: #1e3a2f; color: #a6e3a1; }
+.run-result-status--error { background: #3c1f28; color: #f38ba8; }
+.run-result-status--cancelled { background: #312e3a; color: #f9e2af; }
+
+.run-result-meta {
+  display: grid;
+  gap: 6px;
+  font-size: 11px;
+  color: #6c7086;
+}
+
+.run-result-meta dt {
+  font-weight: 600;
+  color: #7f849c;
+}
+
+.run-result-meta dd {
+  margin: 0;
+  color: #bac2de;
+}
+
+.run-result-body {
+  flex: 1;
+  min-height: 80px;
+}
+
+.run-result-hint {
+  color: #6c7086;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.run-result-text {
+  margin: 0;
+  padding: 10px;
+  background: #11111b;
+  border: 1px solid #313244;
+  border-radius: 6px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #cdd6f4;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: min(40vh, 360px);
+  overflow: auto;
+}
+
+.run-result-error {
+  margin: 0;
+  padding: 8px;
+  background: #2a121c;
+  border: 1px solid #f38ba8;
+  border-radius: 6px;
+  font-size: 11px;
+  color: #f38ba8;
+  line-height: 1.4;
+}
+
+/* ── Named corpora (AppRetrieve) ── */
+
+.node-widget-row--corpus,
+.node-inspector-corpus-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  margin-top: 4px;
+}
+
+.node-widget-corpus-actions {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.node-widget-corpus-row .node-widget-label,
+.node-inspector-corpus-row .node-widget-label {
+  flex: 0 0 100%;
+}
+
+.node-widget-corpus-row .node-widget-input,
+.node-inspector-corpus-row .node-widget-input {
+  flex: 1 1 120px;
+  min-width: 0;
+}
+
+.node-widget-btn {
+  padding: 2px 8px;
+  font-size: 10px;
+  border-radius: 4px;
+  border: 1px solid #45475a;
+  background: #313244;
+  color: #cdd6f4;
+  cursor: pointer;
+}
+
+.node-widget-btn:hover {
+  background: #45475a;
+}
+
+.node-widget-hint,
+.node-inspector-hint {
+  font-size: 9px;
+  line-height: 1.3;
+  color: #6c7086;
+  margin: 2px 0 0;
+}
+
+.node-inspector-field--block {
+  display: block;
+  width: 100%;
+}
+
+.corpus-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.corpus-dialog {
+  width: min(560px, 100%);
+  max-height: min(90vh, 720px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 18px 14px;
+  background: #1e1e2e;
+  border: 1px solid #45475a;
+  border-radius: 10px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  color: #cdd6f4;
+}
+
+.corpus-dialog-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0;
+  color: #89b4fa;
+}
+
+.corpus-dialog-id {
+  font-size: 10px;
+  color: #6c7086;
+  margin: 0;
+}
+
+.corpus-dialog-id code {
+  color: #a6e3a1;
+  word-break: break-all;
+}
+
+.corpus-dialog-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+}
+
+.corpus-dialog-field .node-widget-textarea {
+  min-height: 200px;
+  font-size: 11px;
+  resize: vertical;
+}
+
+.corpus-dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+  justify-content: flex-end;
+}
+
+.corpus-dialog-btn {
+  padding: 6px 12px;
+  font-size: 12px;
+  border-radius: 6px;
+  border: 1px solid #45475a;
+  background: #313244;
+  color: #cdd6f4;
+  cursor: pointer;
+}
+
+.corpus-dialog-btn.primary {
+  background: #89b4fa;
+  border-color: #89b4fa;
+  color: #1e1e2e;
+  font-weight: 600;
+}
+
+.corpus-dialog-btn.danger {
+  border-color: #f38ba8;
+  color: #f38ba8;
+  background: transparent;
+  margin-right: auto;
+}
+
+.corpus-dialog-btn:hover {
+  filter: brightness(1.05);
+}
+
+.corpus-field-head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 6px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #a6adc8;
+}
+
+.corpus-field-head code {
+  font-size: 10px;
+  color: #bac2de;
+}
+
+.corpus-browse-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.corpus-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.corpus-dropzone {
+  border-radius: 6px;
+  border: 2px dashed transparent;
+  padding: 2px;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.corpus-dropzone--active {
+  border-color: #89b4fa;
+  background: rgba(137, 180, 250, 0.08);
+}
+
+.corpus-dialog-textarea {
+  min-height: 200px;
+  width: 100%;
+  display: block;
+}
+
+.corpus-ingest-msg {
+  font-size: 10px;
+  color: #a6e3a1;
+  margin: 4px 0 0;
+  line-height: 1.35;
+}

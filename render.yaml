@@ -1,0 +1,25 @@
+# Example Render.com **Web Service** for the Hono API only.
+# Create a separate **Static Site** on Vercel/Netlify for the Vite UI, then set
+# build-time `VITE_API_ORIGIN` to this service’s public URL and `CORS_ORIGINS` to the UI origin.
+#
+# In the Render dashboard: New → Blueprint → connect this repo and point to this file,
+# or create a Web Service manually with the settings below.
+
+services:
+  - type: web
+    name: flow-prompt-studio-api
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: CORS_ORIGINS
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_MODEL
+        sync: false
