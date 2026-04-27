@@ -1,47 +1,100 @@
-# Deploy — Flow Prompt Studio (Milestone 3)
+# Deploy — public UI + API URL
 
-The app is **two parts**: a static **Vite** UI and a **Node** Hono API. In development, Vite **proxies** `/api` to the API. In production, the UI is usually a **different origin** from the API, so the client is built with `VITE_API_ORIGIN` and the server allows the UI in `CORS_ORIGINS`.
+The app is **two deployables**:
 
-## 1. API (Hono on Render, Fly, Railway, etc.)
+| Part | Role | Typical host |
+|------|------|----------------|
+| **UI** | Static Vite build (`dist/`) | **Vercel**, Netlify, Cloudflare Pages |
+| **API** | Node + Hono (`npm start`) | **Render**, Railway, Fly.io |
 
-1. Create a **Web Service** (Node 20+), connect this repo, **root** `projects/flow-prompt-studio` if the repo is the notes monorepo.
-2. **Build command:** `npm install` (or `cd projects/flow-prompt-studio && npm install`).
-3. **Start command:** `npm start` (runs `tsx server/index.ts`).
-4. **Port:** the server reads `PORT` from the host (Render sets this automatically). Default locally is `8787`.
-5. **Environment variables:**
+Local dev uses one origin with Vite proxying `/api`. In production the UI usually calls a **different origin**, so you set **`VITE_API_ORIGIN`** at **build time** on the static host and **`CORS_ORIGINS`** on the API to the **exact** UI origin (scheme + host + port if any).
 
-   | Name | Required | Purpose |
-   |------|----------|---------|
-   | `OPENAI_API_KEY` | Recommended | Real model output; if empty, the API **echoes** the prompt. |
-   | `CORS_ORIGINS` | **Yes in prod** | Comma- or space-separated list of **browser** origins, e.g. `https://your-app.vercel.app`. If unset, only localhost (5173, 4173) is allowed. |
+**Echo mode:** If **`OPENAI_API_KEY`** is unset on the API, `/api/complete` returns `[echo / no OPENAI_API_KEY] …` — enough to prove deploy without secrets.
+
+---
+
+## Order of operations
+
+1. Deploy the **API** and note its public origin (e.g. `https://flow-prompt-studio-api.onrender.com`).
+2. Set **`CORS_ORIGINS`** on the API to your future UI origin(s), e.g. `https://flow-prompt-studio.vercel.app` (add preview URLs if you want PR previews to work).
+3. Deploy the **UI** with **`VITE_API_ORIGIN`** set to that API origin (no path, no trailing slash).
+4. Open the UI URL, run a graph — completions should work (LLM if key set, else echo).
+
+---
+
+## 1. API on Render
+
+1. [Dashboard](https://dashboard.render.com/) → **New** → **Web Service** → connect **`armin-es/flow-prompt-studio`** (or your fork).
+2. **Root directory:** leave empty if the repo root **is** this project; otherwise set the subfolder where `package.json` lives.
+3. **Runtime:** Node **20+**.
+4. **Build command:** `npm install` (or `npm ci` if you prefer lockfile-only installs).
+5. **Start command:** `npm start`
+6. **Health check path:** `/api/health`
+7. **Environment variables:**
+
+   | Variable | Required | Notes |
+   |----------|----------|--------|
+   | `CORS_ORIGINS` | **Yes** for browser UI | e.g. `https://your-app.vercel.app` — comma/space-separated list of allowed **browser** origins. Without this, only localhost dev origins work. |
+   | `OPENAI_API_KEY` | No | Omit for echo-only demos. |
    | `OPENAI_MODEL` | No | Default `gpt-4o-mini`. |
-   | `PORT` | Optional | Injected by most hosts. |
+   | `DATABASE_URL` | No | Stage B Postgres + pgvector; omit if you only need completions/embeddings without persistence. |
+   | `AUTH_SECRET` / `AUTH_PASSWORD` | No | Optional gate; if set, see README “API authentication” and set **`AUTH_COOKIE_SECURE=1`** on HTTPS. |
 
-6. **Health check:** set the path to `/api/health` (returns `{ "ok": true, "service": "flow-prompt-studio" }`).
+8. Deploy and copy the service **URL**.
 
-See [`render.yaml`](./render.yaml) for an example **Render** blueprint (adjust **root** if needed).
+Optional: use [`render.yaml`](./render.yaml) via **Blueprint** (same env names; set secrets in the dashboard).
 
-## 2. UI (Vercel, Netlify, Cloudflare Pages, etc.)
+**Smoke test:**
 
-1. **Build command:** `npm run build` (from `flow-prompt-studio` root).
-2. **Output directory:** `dist`.
-3. **Environment variables (build time):**
+```bash
+curl -sS "https://<YOUR_API_HOST>/api/health"
+```
 
-   | Name | Required | Purpose |
-   |------|----------|---------|
-   | `VITE_API_ORIGIN` | **Yes** if the API is not same-origin | Public **origin** of the API only, e.g. `https://flow-prompt-api.onrender.com` — no path, no trailing slash. |
+Expect JSON with `"ok": true` and `"database": …`, `"auth": …`.
 
-4. The repo includes [`vercel.json`](./vercel.json) (SPA rewrites to `index.html` + long cache for `assets/`).
+---
 
-**After the API URL is known:** set `CORS_ORIGINS` on the server to the **exact** UI origin (e.g. `https://flow-prompt.vercel.app`) and rebuild the UI with `VITE_API_ORIGIN` pointing at the API. Order: deploy API first → copy URL → set CORS on API → set `VITE_API_ORIGIN` on static host → redeploy UI.
+## 2. UI on Vercel
 
-## 3. Checklist
+1. [Vercel](https://vercel.com/) → **Add New…** → **Project** → import **`armin-es/flow-prompt-studio`** (or fork).
+2. Framework preset **Vite** should match [`vercel.json`](./vercel.json) (`framework`, `buildCommand`, `outputDirectory`).
+3. **Environment variables** (Production — and Preview if you want previews to hit the API):
 
-- [ ] `GET https://<api>/api/health` returns 200 and JSON.
-- [ ] `POST https://<api>/api/complete` works from the browser (or curl with `Origin: https://<ui>`) once CORS matches.
-- [ ] The deployed UI loads, **Run** completes (LLM or echo if no key).
+   | Name | Value |
+   |------|--------|
+   | `VITE_API_ORIGIN` | `https://<YOUR_API_HOST>` — API origin only, no `/api` suffix |
 
-## 4. Video + resume (you)
+4. Deploy and open the **`.vercel.app`** URL (or your custom domain).
 
-- Record 60–90s: default graph, edit prompt, **Run**, result panel, pan/zoom, **Escape** to cancel.
-- Add one line to your resume / LI aligned with the repo README (see main README “Resume (one line)”).
+**Smoke test:** Load the app, add **App pipeline** (or a preset), **Run** — you should see text (model or echo).
+
+---
+
+## 3. CLI alternative (Vercel)
+
+If you use the Vercel CLI locally (`npm i -g vercel`):
+
+```bash
+cd flow-prompt-studio
+vercel login
+vercel link
+vercel env add VITE_API_ORIGIN production   # paste API origin when prompted
+vercel --prod
+```
+
+---
+
+## 4. Checklist
+
+- [ ] `GET https://<api>/api/health` → 200 JSON.
+- [ ] `CORS_ORIGINS` on the API includes the exact Vercel UI origin (scheme + host).
+- [ ] `VITE_API_ORIGIN` on Vercel matches the API origin used in the browser.
+- [ ] UI loads, **Run** finishes (OpenAI output or echo).
+
+---
+
+## 5. Troubleshooting
+
+- **CORS errors in the browser console:** `CORS_ORIGINS` must include the UI’s origin string-for-string (`https://foo.vercel.app` ≠ `https://www.foo.vercel.app`).
+- **`401 Unauthorized` on `/api/*`:** API has **`AUTH_SECRET`** + **`AUTH_PASSWORD`** set; either sign in through the UI or unset auth env vars for a public echo demo.
+- **`fetch failed` / wrong API:** Confirm `VITE_API_ORIGIN` was set **before** the last UI build (Vite inlines env at build time).

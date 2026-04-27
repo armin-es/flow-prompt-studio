@@ -2,10 +2,15 @@
 
 Node **graph editor** (Input → **LLM** → Output) with a tiny **Hono** API. The default is the app pipeline; `?demo=comfy` loads the old simulated ComfyUI workflow, and `?stress=N` loads a long **Stress** chain (default 200) for pan/zoom profiling.
 
+## Deploy (public URL)
+
+Step-by-step **Vercel UI + Render API**: **[DEPLOY.md](./DEPLOY.md)** (echo mode works without `OPENAI_API_KEY`). After deploy, add your live link here and in the repo About section.
+
 ## Run (client + API)
 
 ```bash
-cd projects/flow-prompt-studio
+git clone https://github.com/armin-es/flow-prompt-studio.git
+cd flow-prompt-studio
 npm install
 npm run dev
 ```
