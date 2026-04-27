@@ -13,12 +13,44 @@ export function AuthGate({ children }: { children: ReactNode }) {
   const [state, setState] = useState<GateState>({ phase: 'loading' })
 
   const refreshStatus = useCallback(async () => {
-    const r = await apiFetch(apiPath('/api/auth/status'))
-    const j = (await r.json()) as {
+    const configuredOrigin = import.meta.env.VITE_API_ORIGIN?.replace(/\/$/, '') ?? ''
+    if (import.meta.env.PROD && configuredOrigin.length === 0) {
+      throw new Error(
+        'This deploy has no VITE_API_ORIGIN. In Vercel → Settings → Environment Variables, set VITE_API_ORIGIN to your Render API origin only (e.g. https://your-service.onrender.com — no path). Save, then Redeploy — Vite must rebuild so the value is embedded.',
+      )
+    }
+
+    let r: Response
+    try {
+      r = await apiFetch(apiPath('/api/auth/status'))
+    } catch {
+      throw new Error(
+        import.meta.env.DEV
+          ? 'Could not reach the API. Run `npm run dev` (client + API) or `npm run dev:server`, then reload.'
+          : 'Network/CORS error when calling the API. On Render, set CORS_ORIGINS to your exact Vercel origin (https://….vercel.app). Confirm VITE_API_ORIGIN is your Render URL, not the Vercel URL.',
+      )
+    }
+
+    const text = await r.text()
+    if (!r.ok) {
+      throw new Error(
+        `API replied with HTTP ${r.status}. Check VITE_API_ORIGIN points at Render (not Vercel) and the Render service is live.`,
+      )
+    }
+
+    let j: {
       authenticated?: boolean
       authDisabled?: boolean
       loginWithPassword?: boolean
     }
+    try {
+      j = JSON.parse(text) as typeof j
+    } catch {
+      throw new Error(
+        'API returned non-JSON (often a 404 page). Set VITE_API_ORIGIN to your Render base URL and redeploy Vercel.',
+      )
+    }
+
     if (j.authDisabled) {
       setState({ phase: 'ready' })
       return
@@ -39,13 +71,13 @@ export function AuthGate({ children }: { children: ReactNode }) {
     ;(async () => {
       try {
         await refreshStatus()
-      } catch {
+      } catch (e) {
         if (!cancelled) {
-          setState({
-            phase: 'error',
-            message:
-              'Could not reach the API. Start the server (`npm run dev:server`) or check CORS / network.',
-          })
+          const message =
+            e instanceof Error
+              ? e.message
+              : 'Could not reach the API. Start the server (`npm run dev:server`) or check CORS / network.'
+          setState({ phase: 'error', message })
         }
       }
     })()
@@ -104,12 +136,12 @@ export function AuthGate({ children }: { children: ReactNode }) {
             void (async () => {
               try {
                 await refreshStatus()
-              } catch {
-                setState({
-                  phase: 'error',
-                  message:
-                    'Could not reach the API. Start the server (`npm run dev:server`) or check CORS / network.',
-                })
+              } catch (e) {
+                const message =
+                  e instanceof Error
+                    ? e.message
+                    : 'Could not reach the API. Start the server (`npm run dev:server`) or check CORS / network.'
+                setState({ phase: 'error', message })
               }
             })()
           }}
