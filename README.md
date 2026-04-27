@@ -160,7 +160,7 @@ Static UI + Node API. Set **`VITE_API_ORIGIN`** at build time and **`CORS_ORIGIN
 
 ## Roadmap (later)
 
-- Vector DB / persistent corpus / hybrid reranking — in-repo design notes: [docs/05-real-node-design.md](./docs/05-real-node-design.md).
+- Vector DB / persistent corpus / hybrid reranking — partly addressed by Stage B (Postgres + pgvector); further notes kept outside this repo.
 - **Pause / approval** node (block the run until the user continues) — not in v1; **Run from here** is the supported way to redo work from a chosen node.
 - Further perf: virtualize or simplify edge updates if profiling still shows a bottleneck.
 - E2E tests — optional; not required for the portfolio story.

@@ -17,9 +17,11 @@ dist-ssr
 .env.*
 !.env.example
 
-# Local-only planning docs and Cursor rules (keep on disk, do not publish)
+# Local-only planning docs (keep on disk, do not publish)
 docs/
-.cursor/rules/interview-pitch-sync.mdc
+
+# Cursor IDE (rules stay local)
+.cursor/
 
 # Editor directories and files
 .vscode/*
