@@ -398,43 +398,51 @@ export function createPersistenceApp(): Hono {
   })
 
   r.post('/retrieve', async (c) => {
-    const db = getDb()
-    const pool = getPool()
-    if (db == null || pool == null) {
-      return c.json(noDb(), 503)
-    }
-    let body: unknown
     try {
-      body = await c.req.json()
-    } catch {
-      return c.json({ error: 'Invalid JSON' }, 400)
-    }
-    const parsed = retrieveBody.safeParse(body)
-    if (!parsed.success) {
-      return c.json({ error: parsed.error.message }, 400)
-    }
-    if (parsed.data.mode !== 'cosine') {
-      return c.json({ error: 'Server retrieve supports cosine only' }, 400)
-    }
-    const uid = userId(c)
-    const { corpusId, query, k } = parsed.data
-    const [co] = await db
-      .select()
-      .from(corpora)
-      .where(and(eq(corpora.id, corpusId), eq(corpora.userId, uid)))
-    if (co == null) {
-      return c.json({ error: 'Corpus not found' }, 404)
-    }
-    const key = process.env.OPENAI_API_KEY
-    if (!key || key.length === 0) {
-      return c.json({ error: 'OPENAI_API_KEY is not set' }, 503)
-    }
-    const openai = new OpenAI({ apiKey: key })
-    const model = process.env.OPENAI_EMBED_MODEL ?? 'text-embedding-3-small'
-    const qe = await openai.embeddings.create({ model, input: [query] })
-    const qv = qe.data[0]!.embedding as number[]
-    const vlit = vectorToPgLiteral(qv)
-    const q = `
+      const db = getDb()
+      const pool = getPool()
+      if (db == null || pool == null) {
+        return c.json(noDb(), 503)
+      }
+      let body: unknown
+      try {
+        body = await c.req.json()
+      } catch {
+        return c.json({ error: 'Invalid JSON' }, 400)
+      }
+      const parsed = retrieveBody.safeParse(body)
+      if (!parsed.success) {
+        return c.json({ error: parsed.error.message }, 400)
+      }
+      if (parsed.data.mode !== 'cosine') {
+        return c.json({ error: 'Server retrieve supports cosine only' }, 400)
+      }
+      const uid = userId(c)
+      const { corpusId, query, k } = parsed.data
+      const [co] = await db
+        .select()
+        .from(corpora)
+        .where(and(eq(corpora.id, corpusId), eq(corpora.userId, uid)))
+      if (co == null) {
+        return c.json({ error: 'Corpus not found' }, 404)
+      }
+      const key = process.env.OPENAI_API_KEY
+      if (!key || key.length === 0) {
+        return c.json({ error: 'OPENAI_API_KEY is not set' }, 503)
+      }
+      const openai = new OpenAI({ apiKey: key })
+      const model = process.env.OPENAI_EMBED_MODEL ?? 'text-embedding-3-small'
+      let qe
+      try {
+        qe = await openai.embeddings.create({ model, input: [query] })
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e)
+        console.error('[flow-prompt-studio] OpenAI embed query', e)
+        return c.json({ error: `Query embedding failed: ${msg}` }, 502)
+      }
+      const qv = qe.data[0]!.embedding as number[]
+      const vlit = vectorToPgLiteral(qv)
+      const q = `
       SELECT
         ch.content,
         ch.source,
@@ -449,16 +457,8 @@ export function createPersistenceApp(): Hono {
       ORDER BY ch.embedding <=> $1::vector
       LIMIT $4
     `
-    let res = await pool.query<{
-      content: string
-      source: string
-      partIndex: number
-      docTitle: string
-      score: string
-    }>(q, [vlit, corpusId, uid, k])
-    if (res.rows.length === 0) {
-      const heal = await embedPendingChunksForCorpus(db, uid, corpusId)
-      if (heal.embedded > 0) {
+      let res
+      try {
         res = await pool.query<{
           content: string
           source: string
@@ -466,25 +466,61 @@ export function createPersistenceApp(): Hono {
           docTitle: string
           score: string
         }>(q, [vlit, corpusId, uid, k])
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e)
+        console.error('[flow-prompt-studio] pg retrieve', e)
+        return c.json(
+          {
+            error: `Database query failed: ${msg}. If you use Supabase, set DATABASE_URL to the Direct connection (db.*.supabase.co:5432), not the transaction pooler (:6543).`,
+          },
+          500,
+        )
       }
+      if (res.rows.length === 0) {
+        const heal = await embedPendingChunksForCorpus(db, uid, corpusId)
+        if (heal.embedded > 0) {
+          try {
+            res = await pool.query<{
+              content: string
+              source: string
+              partIndex: number
+              docTitle: string
+              score: string
+            }>(q, [vlit, corpusId, uid, k])
+          } catch (e: unknown) {
+            const msg = e instanceof Error ? e.message : String(e)
+            console.error('[flow-prompt-studio] pg retrieve (after heal)', e)
+            return c.json(
+              {
+                error: `Database query failed: ${msg}. If you use Supabase, use the Direct connection string.`,
+              },
+              500,
+            )
+          }
+        }
+      }
+      if (res.rows.length === 0) {
+        return c.json(
+          {
+            error:
+              'No embedded chunks for this corpus. The server tried to embed pending chunks inline and still found none — make sure the corpus has documents saved (POST /api/corpora/:id or /documents) and OPENAI_API_KEY is set on the API. You can also set VITE_COSINE_CLIENT_FALLBACK=1 to allow in-browser cosine (IndexedDB).',
+          },
+          400,
+        )
+      }
+      const rows = res.rows.map((r) => ({
+        text: r.content,
+        source: r.source,
+        docTitle: r.docTitle,
+        partIndex: r.partIndex,
+        score: Number.parseFloat(r.score),
+      }))
+      return c.json({ rows, fallbackNote: null as string | null })
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e)
+      console.error('[flow-prompt-studio] POST /api/retrieve', e)
+      return c.json({ error: msg }, 500)
     }
-    if (res.rows.length === 0) {
-      return c.json(
-        {
-          error:
-            'No embedded chunks for this corpus. The server tried to embed pending chunks inline and still found none — make sure the corpus has documents saved (POST /api/corpora/:id or /documents) and OPENAI_API_KEY is set on the API. You can also set VITE_COSINE_CLIENT_FALLBACK=1 to allow in-browser cosine (IndexedDB).',
-        },
-        400,
-      )
-    }
-    const rows = res.rows.map((r) => ({
-      text: r.content,
-      source: r.source,
-      docTitle: r.docTitle,
-      partIndex: r.partIndex,
-      score: Number.parseFloat(r.score),
-    }))
-    return c.json({ rows, fallbackNote: null as string | null })
   })
 
   r.post('/runs', async (c) => {

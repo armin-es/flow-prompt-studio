@@ -19,12 +19,26 @@ export function getDatabaseUrl(): string | undefined {
   return u && u.length > 0 ? u : undefined
 }
 
+function warnIfSupabaseTransactionPooler(url: string): void {
+  try {
+    const u = new URL(url.replace(/^postgresql:/i, 'postgres:'))
+    if (u.hostname.includes('pooler.supabase.com') && u.port === '6543') {
+      console.warn(
+        '[flow-prompt-studio] DATABASE_URL uses Supabase transaction pooler (port 6543). node-pg uses prepared statements; use the Direct connection string (db.*.supabase.co:5432) or Session pooler instead — see DEPLOY.md.',
+      )
+    }
+  } catch {
+    // ignore URL parse errors
+  }
+}
+
 export function getPool(): pg.Pool | null {
   const url = getDatabaseUrl()
   if (!url) {
     return null
   }
   if (!_pool) {
+    warnIfSupabaseTransactionPooler(url)
     _pool = new pg.Pool({ connectionString: url, max: 8 })
   }
   return _pool

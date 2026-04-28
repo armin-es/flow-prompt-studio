@@ -117,8 +117,17 @@ Use any managed Postgres that ships **pgvector** (or lets you enable it). Exampl
 | Provider | Notes |
 |----------|--------|
 | **[Neon](https://neon.tech/)** | Enable **pgvector** in project settings; copy pooled connection string; append **`?sslmode=require`** if not already present. |
-| **[Supabase](https://supabase.com/)** | Postgres includes pgvector; use **Connection string** (URI) from **Project Settings → Database**. |
+| **[Supabase](https://supabase.com/)** | Postgres includes pgvector — **must use Direct or Session URI** (see below). **Do not** use the transaction pooler on port **6543** for this API. |
 | **[Render Postgres](https://render.com/docs/databases)** | Create a **PostgreSQL** instance and link it to your Web Service so **`DATABASE_URL`** is injected — confirm **`vector`** extension is available (Postgres 15+ images often work; if migration fails, use Neon/Supabase instead). |
+
+#### Supabase: Direct vs pooler
+
+The **`pg`** driver uses **prepared statements**. Supabase **transaction pooler** (**port 6543**) does **not** support them, so **`POST /api/retrieve`** (and similar queries) can fail with **500**.
+
+Use **`DATABASE_URL`** from:
+
+- **Project Settings → Database → Connection string → URI**, using **Direct connection** (`db.<project-ref>.supabase.co`, port **5432**), **or**
+- **Session pooler** if shown (port **5432** on the pooler host) — **not** transaction mode **6543**.
 
 ### Wire the API (e.g. Render)
 
