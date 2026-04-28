@@ -1,10 +1,16 @@
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres'
 import { migrate } from 'drizzle-orm/node-postgres/migrator'
 import { config } from 'dotenv'
+import dns from 'node:dns'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import pg from 'pg'
 import * as schema from './schema.js'
+
+/** Prefer IPv4 for Postgres hostnames (e.g. Supabase); Render often has no IPv6 egress → ENETUNREACH on AAAA. */
+if (typeof dns.setDefaultResultOrder === 'function') {
+  dns.setDefaultResultOrder('ipv4first')
+}
 
 config()
 
