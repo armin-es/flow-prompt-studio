@@ -93,7 +93,12 @@ export const useCorpusStore = create<CorpusState>()((set, get) => ({
       await writeCorpusToDb(e)
     }
     set({ byId, ready: true })
-    await get().pullFromServerIfEnabled()
+    // With Clerk, `/api/corpora` needs a session JWT; bootstrap runs before Clerk mounts,
+    // so `ClerkTokenBridge` calls `pullFromServerIfEnabled` after sign-in when sync is on.
+    const clerkPk = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY?.trim()
+    if (!clerkPk) {
+      await get().pullFromServerIfEnabled()
+    }
   },
 
   pullFromServerIfEnabled: async () => {

@@ -39,8 +39,16 @@ const corpusUpdate = z.object({
 })
 
 const retrieveBody = z.object({
-  corpusId: z.string().min(1),
-  query: z.string().min(1).max(4_000),
+  corpusId: z
+    .string()
+    .max(200)
+    .transform((s) => s.trim())
+    .refine((s) => s.length > 0, 'corpusId is required'),
+  query: z
+    .string()
+    .max(4_000)
+    .transform((s) => s.trim())
+    .refine((s) => s.length > 0, 'query is required'),
   k: z.number().int().min(1).max(20).default(5),
   mode: z.enum(['cosine']),
 })
@@ -424,12 +432,21 @@ export function createPersistenceApp(): Hono {
       }
       const uid = userId(c)
       const { corpusId, query, k } = parsed.data
+      await db.insert(users).values({ id: uid }).onConflictDoNothing()
       const [co] = await db
         .select()
         .from(corpora)
         .where(and(eq(corpora.id, corpusId), eq(corpora.userId, uid)))
       if (co == null) {
-        return c.json({ error: 'Corpus not found' }, 404)
+        return c.json(
+          {
+            code: 'corpus_not_found',
+            error:
+              `No corpus "${corpusId}" for this signed-in user. Create it via corpus sync (build with VITE_SYNC_SERVER=1 and save), or POST /api/corpora, then embed chunks (OPENAI_API_KEY / POST .../embed). List ids with GET /api/corpora. Match the AppRetrieve node's corpus id.`,
+            corpusId,
+          },
+          422,
+        )
       }
       const key = process.env.OPENAI_API_KEY
       if (!key || key.length === 0) {
