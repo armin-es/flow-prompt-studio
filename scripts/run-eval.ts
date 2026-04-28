@@ -1,11 +1,16 @@
 /**
- * Stage-D4 eval harness: recall@K + MRR vs gold chunk keys.
+ * Eval harness:
+ *  1. Retrieval: recall@K + MRR vs gold chunk keys (`data/evals/default.json`).
+ *  2. Graph presets: Vitest smoke (`src/eval/graphSmoke.test.ts`) — RAG + Agent
+ *     executor chains with mocks (no live HTTP).
  *
  * Usage:
- *   npm run eval                    # BM25 only (no API key; CI-safe)
- *   npm run eval -- --cosine       # OpenAI embeddings (needs OPENAI_API_KEY)
+ *   npm run eval                      # BM25 retrieval + graph smoke tests
+ *   npm run eval -- --retrieval-only  # retrieval metrics only
+ *   npm run eval -- --cosine          # cosine retrieval (needs OPENAI_API_KEY)
  *   npm run eval -- data/evals/custom.json
  */
+import { spawnSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -17,6 +22,7 @@ const root = join(__dirname, '..')
 
 async function main(): Promise<void> {
   const argv = process.argv.slice(2)
+  const retrievalOnly = argv.includes('--retrieval-only')
   const cosine = argv.includes('--cosine')
   const jsonArg = argv.find((a) => a.endsWith('.json'))
   const manifestPath =
@@ -32,8 +38,25 @@ async function main(): Promise<void> {
   try {
     const result = await runEvalSuite(manifest, mode, ac.signal)
     console.log(formatSuiteReport(result))
+    console.log('')
   } finally {
     clearTimeout(t)
+  }
+
+  if (!retrievalOnly) {
+    console.log('Graph preset smoke (Vitest)…')
+    const r = spawnSync('npx', ['vitest', 'run', 'src/eval/graphSmoke.test.ts'], {
+      cwd: root,
+      stdio: 'inherit',
+      env: process.env,
+      shell: process.platform === 'win32',
+    })
+    if (r.status !== 0 && r.status != null) {
+      process.exit(r.status)
+    }
+    if (r.error) {
+      throw r.error
+    }
   }
 }
 
