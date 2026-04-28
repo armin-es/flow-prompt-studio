@@ -35,6 +35,7 @@ Split UI/API hosts need matching **`CORS_ORIGINS`** (your site origin) and, on H
 | `npm run dev` | Vite + API (`concurrently`) |
 | `npm run build` | Client production build |
 | `npm run test` | Unit tests (Vitest) |
+| `npm run eval` | RAG eval harness (Stage D4): recall@K / MRR vs `data/evals/default.json`; BM25 by default, `npm run eval -- --cosine` needs `OPENAI_API_KEY` |
 | `npm run typecheck:server` | Typecheck `server/index.ts` |
 | `npm start` | API only (production-style; `PORT` from env) |
 | `npm run db:generate` / `db:migrate` / `db:push` / `db:studio` | Drizzle + Postgres (Stage B); `db:up` starts Docker; `db:migrate` / `db:studio` run `db:up` and **wait** until the DB port accepts connections (avoids `ECONNREFUSED` right after `compose up`) |

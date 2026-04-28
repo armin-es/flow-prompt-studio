@@ -1,0 +1,84 @@
+{
+  "version": 1,
+  "description": "Hand-written queries against the shipped default retrieve corpus (see src/data/defaultRetrieveCorpus.ts). Chunk keys assume chunkSize=800, chunkOverlap=100 (one chunk per doc).",
+  "chunkSize": 800,
+  "chunkOverlap": 100,
+  "corpusRef": "builtin:default",
+  "cases": [
+    {
+      "id": "bm25-definition",
+      "query": "What is BM25?",
+      "goldChunkKeys": ["doc-1#1"]
+    },
+    {
+      "id": "bm25-idf",
+      "query": "inverse document frequency normalization BM25",
+      "goldChunkKeys": ["doc-1#1"]
+    },
+    {
+      "id": "graph-topo",
+      "query": "How are nodes executed in order?",
+      "goldChunkKeys": ["doc-2#1"]
+    },
+    {
+      "id": "graph-dag",
+      "query": "directed acyclic graph DAG dependencies",
+      "goldChunkKeys": ["doc-2#1"]
+    },
+    {
+      "id": "stream-responsive",
+      "query": "Why use requestAnimationFrame for LLM output?",
+      "goldChunkKeys": ["doc-3#1"]
+    },
+    {
+      "id": "stream-tokens",
+      "query": "stream tokens coalesce updates",
+      "goldChunkKeys": ["doc-3#1"]
+    },
+    {
+      "id": "prompt-format",
+      "query": "explicit output format retrieval tasks",
+      "goldChunkKeys": ["doc-4#1"]
+    },
+    {
+      "id": "prompt-ground",
+      "query": "Ground answers in provided context",
+      "goldChunkKeys": ["doc-4#1"]
+    },
+    {
+      "id": "cache-partial",
+      "query": "reuse upstream cache partial run",
+      "goldChunkKeys": ["doc-5#1"]
+    },
+    {
+      "id": "cache-stamp",
+      "query": "content stamp unchanged reuse port values",
+      "goldChunkKeys": ["doc-5#1"]
+    },
+    {
+      "id": "bm25-baseline",
+      "query": "classic lexical baseline information retrieval",
+      "goldChunkKeys": ["doc-1#1"]
+    },
+    {
+      "id": "graph-once",
+      "query": "each node runs once all dependencies complete",
+      "goldChunkKeys": ["doc-2#1"]
+    },
+    {
+      "id": "stream-interface",
+      "query": "interface stays responsive during streaming",
+      "goldChunkKeys": ["doc-3#1"]
+    },
+    {
+      "id": "prompt-explicit",
+      "query": "Be explicit about desired output format",
+      "goldChunkKeys": ["doc-4#1"]
+    },
+    {
+      "id": "cache-invalid",
+      "query": "invalidate partial run cache when content changes",
+      "goldChunkKeys": ["doc-5#1"]
+    }
+  ]
+}

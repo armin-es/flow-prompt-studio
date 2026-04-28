@@ -5,7 +5,8 @@ import { captureGraph } from '../lib/serializeGraph'
 const KEY = 'flow-prompt-v1'
 
 export function PersistenceManager() {
-  const t = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  /** Browser timer id (`number`); avoids Node `Timeout` vs DOM mismatch in `tsc -b`. */
+  const t = useRef<number | undefined>(undefined)
   useEffect(() => {
     return useGraphStore.subscribe((s, p) => {
       if (!p) return

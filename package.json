@@ -16,6 +16,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint .",
+    "eval": "tsx scripts/run-eval.ts",
     "preview": "vite preview",
     "start": "tsx server/index.ts",
     "db:generate": "drizzle-kit generate",
