@@ -15,6 +15,26 @@ describe('createAppNode', () => {
     expect(n.outputs).toHaveLength(1)
   })
 
+  it('AppAgent has TEXT+TOOLS in and TEXT+TEXT out', () => {
+    const n = createAppNode('AppAgent', { x: 0, y: 0 })
+    expect(n.inputs.map((p) => p.dataType)).toEqual(['TEXT', 'TOOLS'])
+    expect(n.outputs.map((p) => p.dataType)).toEqual(['TEXT', 'TEXT'])
+    expect(n.widgetValues[0]).toBe(6)
+    expect(n.widgetValues[1]).toBe('gpt-4o-mini')
+  })
+
+  it('AppTool outputs TOOLS', () => {
+    const n = createAppNode('AppTool', { x: 0, y: 0 })
+    expect(n.outputs).toEqual([{ name: 'tools', dataType: 'TOOLS' }])
+    expect(n.widgetValues[3]).toBe('echo')
+  })
+
+  it('AppToolsJoin merges two TOOLS inputs', () => {
+    const n = createAppNode('AppToolsJoin', { x: 0, y: 0 })
+    expect(n.inputs.every((p) => p.dataType === 'TOOLS')).toBe(true)
+    expect(n.outputs[0]?.dataType).toBe('TOOLS')
+  })
+
   it('AppRetrieve has query in and snippets out, with default widgets', () => {
     const n = createAppNode('AppRetrieve', { x: 0, y: 0 })
     expect(n.type).toBe('AppRetrieve')

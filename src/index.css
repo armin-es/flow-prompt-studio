@@ -432,6 +432,30 @@ html, body, #root {
   color: #6c7086;
 }
 
+.agent-nondet-hint {
+  margin: 0.35rem 0 0;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  opacity: 0.82;
+  color: #a6adc8;
+}
+
+.agent-trace-pre {
+  margin: 0.35rem 0 0;
+  padding: 6px 8px;
+  max-height: 140px;
+  overflow: auto;
+  font-size: 11px;
+  line-height: 1.35;
+  color: #cdd6f4;
+  background: #11111b;
+  border: 1px solid #313244;
+  border-radius: 4px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
 .node-widget--readonly {
   user-select: text;
   cursor: text;

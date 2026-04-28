@@ -109,6 +109,126 @@ export function NodeInspector() {
           </select>
         </label>
       )}
+      {node.type === 'AppToolsJoin' && (
+        <p className="node-inspector-hint">
+          Merge two <strong>TOOLS</strong> payloads (fan-in) so an <strong>Agent</strong> can see multiple tool definitions.
+        </p>
+      )}
+      {node.type === 'AppTool' && (
+        <>
+          <label className="node-inspector-field">
+            <span>Function name</span>
+            <input
+              className="node-widget-input"
+              type="text"
+              value={String(node.widgetValues[0] ?? '')}
+              onChange={(e) => setNodeWidgetValue(id, 0, e.target.value)}
+              onBlur={() => useHistoryStore.getState().commit()}
+              spellCheck={false}
+            />
+          </label>
+          <label className="node-inspector-field">
+            <span>Description</span>
+            <textarea
+              className="node-widget-textarea"
+              value={String(node.widgetValues[1] ?? '')}
+              onChange={(e) => setNodeWidgetValue(id, 1, e.target.value)}
+              onBlur={() => useHistoryStore.getState().commit()}
+              rows={2}
+            />
+          </label>
+          <label className="node-inspector-field">
+            <span>Parameters (JSON Schema)</span>
+            <textarea
+              className="node-widget-textarea"
+              value={String(node.widgetValues[2] ?? '{}')}
+              onChange={(e) => setNodeWidgetValue(id, 2, e.target.value)}
+              onBlur={() => useHistoryStore.getState().commit()}
+              rows={4}
+              spellCheck={false}
+            />
+          </label>
+          <label className="node-inspector-field">
+            <span>Built-in impl</span>
+            <select
+              className="node-widget-input"
+              value={String(node.widgetValues[3] ?? 'echo')}
+              onChange={(e) => {
+                setNodeWidgetValue(id, 3, e.target.value)
+                useHistoryStore.getState().commit()
+              }}
+            >
+              <option value="retrieve">retrieve</option>
+              <option value="http_get">http_get</option>
+              <option value="calc">calc</option>
+              <option value="echo">echo</option>
+            </select>
+          </label>
+          {String(node.widgetValues[3] ?? 'echo') === 'retrieve' && (
+            <label className="node-inspector-field">
+              <span>Corpus id</span>
+              <input
+                className="node-widget-input"
+                type="text"
+                value={String(node.widgetValues[4] ?? '')}
+                onChange={(e) => setNodeWidgetValue(id, 4, e.target.value)}
+                onBlur={() => useHistoryStore.getState().commit()}
+              />
+            </label>
+          )}
+        </>
+      )}
+      {node.type === 'AppAgent' && (
+        <>
+          <label className="node-inspector-field">
+            <span>Step budget (1–20)</span>
+            <input
+              className="node-widget-input"
+              type="number"
+              min={1}
+              max={20}
+              value={String(node.widgetValues[0] ?? 6)}
+              onChange={(e) =>
+                setNodeWidgetValue(
+                  id,
+                  0,
+                  Math.min(20, Math.max(1, Number(e.target.value) || 6)),
+                )
+              }
+              onBlur={() => useHistoryStore.getState().commit()}
+            />
+          </label>
+          <label className="node-inspector-field">
+            <span>Model</span>
+            <select
+              className="node-widget-input"
+              value={String(node.widgetValues[1] ?? 'gpt-4o-mini')}
+              onChange={(e) => {
+                setNodeWidgetValue(id, 1, e.target.value)
+                useHistoryStore.getState().commit()
+              }}
+            >
+              <option value="gpt-4o-mini">gpt-4o-mini</option>
+              <option value="gpt-4o">gpt-4o</option>
+              <option value="gpt-4-turbo">gpt-4-turbo</option>
+            </select>
+          </label>
+          <label className="node-inspector-field">
+            <span>System prompt</span>
+            <textarea
+              className="node-widget-textarea"
+              value={String(node.widgetValues[2] ?? '')}
+              onChange={(e) => setNodeWidgetValue(id, 2, e.target.value)}
+              onBlur={() => useHistoryStore.getState().commit()}
+              rows={4}
+            />
+          </label>
+          <p className="node-inspector-hint">
+            Uses <code>POST /api/complete/tools</code> per step; tools execute in the browser.
+            Partial-run cache treats this node as non-deterministic.
+          </p>
+        </>
+      )}
       {node.type === 'AppRetrieve' && (
         <>
           <label className="node-inspector-field">

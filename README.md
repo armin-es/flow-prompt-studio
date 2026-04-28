@@ -50,12 +50,13 @@ Split UI/API hosts need matching **`CORS_ORIGINS`** (your site origin) and, on H
 | `demo` | `?demo=pick` | **Pick 2→1** demo: two sources, one chosen output |
 | `demo` | `?demo=joinllm` | **Join+LLM**: two **AppInput**s → **AppJoin** → **AppLlm** → **AppOutput** |
 | `demo` | `?demo=rag` | **RAG**: Question → **Tee** → **Retrieve** + **Join** → **AppLlm** → **AppOutput** (BM25 retrieval needs no key; LLM may echo without key) |
+| `demo` | `?demo=agent` | **Agent**: Question → **AppAgent** ← **AppToolsJoin**(**Tool** + **Tool**); tool-calling via **`POST /api/complete/tools`** (same echo-without-key behavior when no `OPENAI_API_KEY`) |
 | `stress` | `?stress=150` | Stress test graph with **N** chained nodes (capped in code) |
 
 ## Toolbar (quick)
 
-- **App pipeline** / **Tee/Join** / **Pick 2→1** / **Join+LLM** / **RAG** / **Comfy demo** / **Stress 200** — **Tee/Join**, **Pick**, and **Retrieve** can run with no API. **RAG** uses **BM25** (in-browser ranking over an in-node corpus) by default; **cosine** uses **`POST /api/embed`** (needs `OPENAI_API_KEY` on the server). The **LLM** step in **RAG** still uses the same completion route as other presets (echo without a key). **Join+LLM** is two sources merged, then the model, then **Output** (real completions need a key like **App pipeline**). **Stress** is for many nodes + edges.
-- **Add** (second row) — spawns **Input**, **LLM**, **Output**, **Join**, **Tee**, **Prefix**, **Pick**, or **Retrieve**; then wire ports manually.
+- **App pipeline** / **Tee/Join** / **Pick 2→1** / **Join+LLM** / **RAG** / **Agent** / **Comfy demo** / **Stress 200** — **Tee/Join**, **Pick**, and **Retrieve** can run with no API. **RAG** uses **BM25** (in-browser ranking over an in-node corpus) by default; **cosine** uses **`POST /api/embed`** (needs `OPENAI_API_KEY` on the server). The **LLM** step in **RAG** still uses the same completion route as other presets (echo without a key). **Agent** uses **`POST /api/complete/tools`** per step (echo/disabled message without a key); built-in tools run in the browser. **Join+LLM** is two sources merged, then the model, then **Output** (real completions need a key like **App pipeline**). **Stress** is for many nodes + edges.
+- **Add** (second row) — spawns **Input**, **LLM**, **Output**, **Join**, **Join⊕** (TOOLS merge), **Tee**, **Prefix**, **Pick**, **Retrieve**, **Agent**, or **Tool**; then wire ports manually.
 - **Import JSON** — Flow **v1** export (`version: 1`, nodes/edges) or ComfyUI workflow JSON.
 - **Export** — downloads the current graph as JSON (same shape as import v1).
 - **Fit** / **Run** / **From here** — fit view; **Run** walks the full DAG; **From here** re-runs the **selected** node and everything **downstream**, using **cached** upstream outputs (after a successful full run; **upstream** nodes must be unchanged since that run, but you can still edit the selected or downstream nodes). See *Technical challenges → Run (partial)*.
@@ -113,8 +114,8 @@ For **Stage B** the API can use **Drizzle + PostgreSQL** when `DATABASE_URL` is 
 
 - **Screen vs graph space:** `viewportMath.ts` + `useViewport` keep pan, zoom, drags, and edge endpoints consistent; covered by **Vitest** for the pure math.
 - **Edges:** Port centers measured in the layout, converted to **graph** space, cached in `portPositionStore` so the SVG layer stays in sync with nodes and zoom. The **graph node layer** sits **above** the edge `<svg>` in `z-index` so static Bézier hit targets don’t steal clicks from **ports**. The **in-flight** draft wire (`.wire-draft`) is excluded from the same `pointer-events: stroke` rule as finished edges, so a drop reaches `[data-input-port]` to complete a connection; otherwise the **draft path** (z=3) would be the `elementFromPoint` target on release.
-- **Run pipeline:** Topological execution; per-node `executionStore`; `runResultStore` for the panel; LLM node calls **`POST /api/complete/stream`** (SSE, OpenAI token stream) with **abort** on cancel; Hono + Zod, **no API key in the client**. **Retrieve** runs **BM25** locally, optional **cosine** in-browser via **`POST /api/embed`**, or with **`VITE_SYNC_SERVER=1` / `VITE_SERVER_COSINE_RETRIEVE=1`**, **cosine** over **`POST /api/retrieve`** (Postgres + pgvector) without client embed cache unless **`VITE_COSINE_CLIENT_FALLBACK=1`**. **rAF** batches partial text into the store so the canvas does not repaint on every chunk.
-- **Run (partial):** After a run, the engine saves **port outputs** and a **per-node content stamp** (type + `widgetValues`). A wire from *outside* the downstream slice into it is valid only if that **source** node’s stamp still matches the saved one—so changing only the **LLM** (or any downstream) does not invalidate cached **Input** data. **Run from here** seeds upstream values from that cache. Vitest covers downstream reachability, fingerprints, and partial-run validation.
+- **Run pipeline:** Topological execution; per-node `executionStore`; `runResultStore` for the panel; LLM node calls **`POST /api/complete/stream`** (SSE, OpenAI token stream) with **abort** on cancel; **AppAgent** calls **`POST /api/complete/tools`** each loop step (tools execute client-side). Hono + Zod, **no API key in the client**. **Retrieve** runs **BM25** locally, optional **cosine** in-browser via **`POST /api/embed`**, or with **`VITE_SYNC_SERVER=1` / `VITE_SERVER_COSINE_RETRIEVE=1`**, **cosine** over **`POST /api/retrieve`** (Postgres + pgvector) without client embed cache unless **`VITE_COSINE_CLIENT_FALLBACK=1`**. **rAF** batches partial text into the store so the canvas does not repaint on every chunk.
+- **Run (partial):** After a run, the engine saves **port outputs** and a **per-node content stamp** (type + `widgetValues`). A wire from *outside* the downstream slice into it is valid only if that **source** node’s stamp still matches the saved one—so changing only the **LLM** (or any downstream) does not invalidate cached **Input** data. **Run from here** seeds upstream values from that cache. **AppAgent** stamps are **volatile** after each full run (non-deterministic completions). Vitest covers downstream reachability, fingerprints, and partial-run validation.
 - **A11y:** **Skip to graph** link, `main` + canvas `application` role with a short description, `aria-label` on primary toolbar actions and on prompt/system text areas, and friendlier error hints in the Last run panel.
 - **Input routing:** Global shortcuts defer to `isTypableFieldFocused()` so typing in a node does not move the canvas.
 - **Editor semantics:** History snapshots + explicit commits; **Add** spawns `createAppNode` at viewport center; multi-select, marquee, drag-to-connect, **Delete** to remove, and clipboard round out authoring on the graph.
@@ -128,9 +129,9 @@ For **Stage B** the API can use **Drizzle + PostgreSQL** when `DATABASE_URL` is 
 2. **Last run** and the **Output** node show the final `TEXT` when the run finishes.
 3. `?demo=comfy` on first load swaps in the Comfy simulation (`main.tsx`).
 
-### App TEXT node types (topology demos)
+### App graph node types (topology + agents)
 
-All use **TEXT** ports like **Input** / **LLM** / **Output** so you can mix them in a graph:
+Most nodes use **TEXT** ports like **Input** / **LLM** / **Output** so you can mix them in a graph. **TOOLS** ports carry structured tool definitions for **AppAgent** (wire types must match, same as TEXT):
 
 | Type | I/O | Role |
 |------|-----|------|
@@ -139,8 +140,11 @@ All use **TEXT** ports like **Input** / **LLM** / **Output** so you can mix them
 | **AppPrefix** | 1→1 | Prepend a **Prefix** string |
 | **AppPick** | 2→1 | Pass through wire **0** or **1** (widget), ignoring the other |
 | **AppRetrieve** | 1→1 | **Query** (TEXT in) → top-**K** passages (TEXT out) with **Passage [n] — [title (¶k)]** + citation / **I don’t know** for the **LLM**; **named corpora** (text in **IndexedDB**, id in the node; **Edit corpus** supports **drop or browse** for `.md` / `.txt` / `.json`); **paragraph-first** chunking; **chunk** / **overlap** in **widgets**; **bm25** / **cosine** + **IndexedDB** embed cache (`.env.example`) |
+| **AppToolsJoin** | 2→1 | Fan-in **TOOLS** + **TOOLS** → merged **TOOLS** (definitions + impl registry) |
+| **AppTool** | 0→1 | Leaf **TOOLS**: one OpenAI-style function + **built-in** impl (`retrieve`, `http_get`, `calc`, `echo`) |
+| **AppAgent** | 2→2 | **prompt** (TEXT) + **tools** (**TOOLS**) → **answer** / **trace** (TEXT); loop calls **`POST /api/complete/tools`** |
 
-Presets: toolbar **Tee/Join** (diamond), **Pick 2→1** (two `AppInput` → `AppPick` → `AppOutput`), **Join+LLM** (task + context → `AppJoin` → `AppLlm` → `AppOutput`), and **RAG** (tee + retrieve + join + LLM, `?demo=rag`).
+Presets: toolbar **Tee/Join** (diamond), **Pick 2→1** (two `AppInput` → `AppPick` → `AppOutput`), **Join+LLM** (task + context → `AppJoin` → `AppLlm` → `AppOutput`), **RAG** (tee + retrieve + join + LLM, `?demo=rag`), and **Agent** (`?demo=agent`).
 
 ## Deploy (production)
 

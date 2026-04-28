@@ -407,6 +407,177 @@ function NodeComponentImpl({ nodeId }: Props) {
         </div>
       )}
 
+      {n.type === 'AppToolsJoin' && (
+        <div
+          className="node-widget node-widget--readonly"
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <p className="node-inspector-hint">
+            Merges <strong>TOOLS</strong> from port <strong>a</strong> and <strong>b</strong> for downstream{' '}
+            <strong>Agent</strong>.
+          </p>
+        </div>
+      )}
+
+      {n.type === 'AppTool' && (
+        <div
+          className="node-widget"
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <label className="node-widget-label" htmlFor={`w-at-name-${n.id}`}>
+            Function name
+          </label>
+          <input
+            id={`w-at-name-${n.id}`}
+            className="node-widget-input"
+            type="text"
+            value={String(n.widgetValues[0] ?? '')}
+            onChange={(e) => setNodeWidgetValue(n.id, 0, e.target.value)}
+            onBlur={commitW}
+            spellCheck={false}
+            autoCapitalize="off"
+            aria-label="Tool function name"
+          />
+          <label className="node-widget-label" htmlFor={`w-at-desc-${n.id}`}>
+            Description
+          </label>
+          <textarea
+            id={`w-at-desc-${n.id}`}
+            className="node-widget-textarea node-widget-textarea--sm"
+            value={String(n.widgetValues[1] ?? '')}
+            onChange={(e) => setNodeWidgetValue(n.id, 1, e.target.value)}
+            onBlur={commitW}
+            rows={2}
+            spellCheck
+          />
+          <label className="node-widget-label" htmlFor={`w-at-schema-${n.id}`}>
+            Parameters (JSON Schema)
+          </label>
+          <textarea
+            id={`w-at-schema-${n.id}`}
+            className="node-widget-textarea node-widget-textarea--sm"
+            value={String(n.widgetValues[2] ?? '{}')}
+            onChange={(e) => setNodeWidgetValue(n.id, 2, e.target.value)}
+            onBlur={commitW}
+            rows={3}
+            spellCheck={false}
+          />
+          <label className="node-widget-label" htmlFor={`w-at-impl-${n.id}`}>
+            Built-in impl
+          </label>
+          <select
+            id={`w-at-impl-${n.id}`}
+            className="node-widget-input"
+            value={String(n.widgetValues[3] ?? 'echo')}
+            onChange={(e) => {
+              setNodeWidgetValue(n.id, 3, e.target.value)
+              commitW()
+            }}
+            aria-label="Tool implementation"
+          >
+            <option value="retrieve">retrieve (BM25 over corpus)</option>
+            <option value="http_get">http_get (HTTPS GET, allow-listed)</option>
+            <option value="calc">calc (safe arithmetic)</option>
+            <option value="echo">echo (JSON args)</option>
+          </select>
+          {String(n.widgetValues[3] ?? 'echo') === 'retrieve' && (
+            <>
+              <label className="node-widget-label" htmlFor={`w-at-corpus-${n.id}`}>
+                Corpus id
+              </label>
+              <input
+                id={`w-at-corpus-${n.id}`}
+                className="node-widget-input"
+                type="text"
+                value={String(n.widgetValues[4] ?? '')}
+                onChange={(e) => setNodeWidgetValue(n.id, 4, e.target.value)}
+                onBlur={commitW}
+                spellCheck={false}
+                aria-label="Corpus id for retrieve"
+              />
+            </>
+          )}
+        </div>
+      )}
+
+      {n.type === 'AppAgent' && (
+        <div
+          className="node-widget"
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <div className="node-widget-row">
+            <label className="node-widget-label" htmlFor={`w-ag-steps-${n.id}`}>
+              Steps (max)
+            </label>
+            <input
+              id={`w-ag-steps-${n.id}`}
+              className="node-widget-input node-widget-input--narrow"
+              type="number"
+              min={1}
+              max={20}
+              value={String(n.widgetValues[0] ?? 6)}
+              onChange={(e) =>
+                setNodeWidgetValue(
+                  n.id,
+                  0,
+                  Math.min(20, Math.max(1, Number(e.target.value) || 6)),
+                )
+              }
+              onBlur={commitW}
+            />
+            <label className="node-widget-label" htmlFor={`w-ag-model-${n.id}`}>
+              Model
+            </label>
+            <select
+              id={`w-ag-model-${n.id}`}
+              className="node-widget-input"
+              value={String(n.widgetValues[1] ?? 'gpt-4o-mini')}
+              onChange={(e) => {
+                setNodeWidgetValue(n.id, 1, e.target.value)
+                commitW()
+              }}
+            >
+              <option value="gpt-4o-mini">gpt-4o-mini</option>
+              <option value="gpt-4o">gpt-4o</option>
+              <option value="gpt-4-turbo">gpt-4-turbo</option>
+            </select>
+          </div>
+          <label className="node-widget-label" htmlFor={`w-ag-sys-${n.id}`}>
+            System prompt
+          </label>
+          <textarea
+            id={`w-ag-sys-${n.id}`}
+            className="node-widget-textarea node-widget-textarea--sm"
+            value={String(n.widgetValues[2] ?? '')}
+            onChange={(e) => setNodeWidgetValue(n.id, 2, e.target.value)}
+            onBlur={commitW}
+            rows={3}
+            spellCheck
+          />
+          <p className="agent-nondet-hint">
+            Agent runs are non-deterministic; partial-run cache treats this node as volatile.
+          </p>
+        </div>
+      )}
+
+      {n.type === 'AppAgent' && (status === 'running' || status === 'done') && (
+        <div
+          className="node-widget node-widget--readonly"
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <span className="node-widget-label">Trace</span>
+          {execState?.outputs[1] &&
+            (execState.outputs[1] as { type?: string }).type === 'TEXT' && (
+              <pre className="agent-trace-pre">
+                {String((execState.outputs[1] as { text?: string }).text ?? '')}
+              </pre>
+            )}
+          {status === 'running' && !execState?.outputs[1] && (
+            <p className="node-output-preview-hint">Running agent steps…</p>
+          )}
+        </div>
+      )}
+
       {n.type === 'AppRetrieve' && (
         <div
           className="node-widget"

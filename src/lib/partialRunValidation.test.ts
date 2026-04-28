@@ -94,4 +94,14 @@ describe('buildNodeStampsForGraph', () => {
     const s = buildNodeStampsForGraph(m)
     expect(s.a).toBe(nodeContentStamp(m.get('a')!))
   })
+
+  it('uses a random suffix for AppAgent so cache !== volatile fingerprint', () => {
+    const [, ag] = node('ag', 'AppAgent', [6, 'gpt-4o-mini', 'sys'])
+    const m = new Map<NodeId, GraphNode>([['ag', ag]])
+    const want = nodeContentStamp(ag)
+    const s = buildNodeStampsForGraph(m)
+    expect(want).toContain('__volatile__')
+    expect(s.ag).not.toBe(want)
+    expect(s.ag.startsWith('AppAgent\0')).toBe(true)
+  })
 })

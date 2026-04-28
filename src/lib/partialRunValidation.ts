@@ -17,6 +17,9 @@ export function nodeContentStamp(n: GraphNode): string {
     const part = useCorpusStore.getState().getStampPart(id)
     return `AppRetrieve\0${JSON.stringify([w[0], id, w[2], w[3], w[4]])}\0${part}`
   }
+  if (n.type === 'AppAgent') {
+    return `AppAgent\0${JSON.stringify(n.widgetValues)}\0__volatile__`
+  }
   return `${n.type}\0${JSON.stringify(n.widgetValues)}`
 }
 
@@ -25,7 +28,15 @@ export function buildNodeStampsForGraph(
 ): Record<string, string> {
   const out: Record<string, string> = {}
   for (const n of nodes.values()) {
-    out[n.id] = nodeContentStamp(n)
+    if (n.type === 'AppAgent') {
+      const suffix =
+        typeof crypto !== 'undefined' && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `run-${Date.now()}`
+      out[n.id] = `AppAgent\0${JSON.stringify(n.widgetValues)}\0${suffix}`
+    } else {
+      out[n.id] = nodeContentStamp(n)
+    }
   }
   return out
 }

@@ -13,6 +13,13 @@ const ITEMS: { type: CreatableAppNodeType; short: string; title: string }[] = [
     short: 'Retrieve',
     title: 'Add Retrieve (BM25/cosine over in-node corpus)',
   },
+  {
+    type: 'AppToolsJoin',
+    short: 'Join⊕',
+    title: 'Add Join for TOOLS (merge two tool defs)',
+  },
+  { type: 'AppAgent', short: 'Agent', title: 'Add Agent (tool-calling loop)' },
+  { type: 'AppTool', short: 'Tool', title: 'Add Tool (built-in impl → TOOLS port)' },
 ]
 
 interface Props {

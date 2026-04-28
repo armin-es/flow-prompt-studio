@@ -36,7 +36,11 @@ export function parseSseBlock(block: string): SseMessage {
 }
 
 export function apiUrl(
-  path: '/api/complete' | '/api/complete/stream' | '/api/embed',
+  path:
+    | '/api/complete'
+    | '/api/complete/stream'
+    | '/api/complete/tools'
+    | '/api/embed',
 ): string {
   const origin = (import.meta.env.VITE_API_ORIGIN ?? '').replace(/\/$/, '')
   return origin ? `${origin}${path}` : path

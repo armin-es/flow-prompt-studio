@@ -15,12 +15,16 @@ export type CreatableAppNodeType =
   | 'AppLlm'
   | 'AppOutput'
   | 'AppJoin'
+  | 'AppToolsJoin'
   | 'AppTee'
   | 'AppPrefix'
   | 'AppPick'
   | 'AppRetrieve'
+  | 'AppAgent'
+  | 'AppTool'
 
 const TEXT = 'TEXT' as const
+const TOOLS = 'TOOLS' as const
 
 /**
  * New node with default labels, size, and ports (matches executors + existing demos).
@@ -116,6 +120,49 @@ export function createAppNode(
         outputs: [{ name: 'snippets', dataType: TEXT }],
         widgetValues: [3, CORPUS_DEFAULT_ID, 800, 100, 'bm25'],
       }
+    case 'AppToolsJoin':
+      return {
+        ...base,
+        type: 'AppToolsJoin',
+        inputs: [
+          { name: 'a', dataType: TOOLS },
+          { name: 'b', dataType: TOOLS },
+        ],
+        outputs: [{ name: 'out', dataType: TOOLS }],
+        widgetValues: [],
+      }
+    case 'AppAgent':
+      return {
+        ...base,
+        type: 'AppAgent',
+        inputs: [
+          { name: 'prompt', dataType: TEXT },
+          { name: 'tools', dataType: TOOLS },
+        ],
+        outputs: [
+          { name: 'answer', dataType: TEXT },
+          { name: 'trace', dataType: TEXT },
+        ],
+        widgetValues: [
+          6,
+          'gpt-4o-mini',
+          'You are a careful assistant; cite tools briefly.',
+        ],
+      }
+    case 'AppTool':
+      return {
+        ...base,
+        type: 'AppTool',
+        inputs: [],
+        outputs: [{ name: 'tools', dataType: TOOLS }],
+        widgetValues: [
+          'echo_demo',
+          'Echo input back as JSON.',
+          '{"type":"object","properties":{"message":{"type":"string"}},"required":["message"]}',
+          'echo',
+          CORPUS_DEFAULT_ID,
+        ],
+      }
   }
 }
 
@@ -137,6 +184,12 @@ function defaultLabel(t: CreatableAppNodeType): string {
       return 'Pick'
     case 'AppRetrieve':
       return 'Retrieve'
+    case 'AppToolsJoin':
+      return 'Join (tools)'
+    case 'AppAgent':
+      return 'Agent'
+    case 'AppTool':
+      return 'Tool'
     default: {
       const _e: never = t
       return _e
@@ -159,6 +212,12 @@ function defaultWidth(t: CreatableAppNodeType): number {
       return 250
     case 'AppRetrieve':
       return 320
+    case 'AppAgent':
+      return 340
+    case 'AppTool':
+      return 300
+    case 'AppToolsJoin':
+      return 260
     default: {
       const _e: never = t
       return _e
@@ -183,6 +242,12 @@ function defaultHeight(t: CreatableAppNodeType): number {
       return 130
     case 'AppRetrieve':
       return 400
+    case 'AppAgent':
+      return 420
+    case 'AppTool':
+      return 340
+    case 'AppToolsJoin':
+      return 140
     default: {
       const _e: never = t
       return _e

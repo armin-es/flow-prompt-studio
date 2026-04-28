@@ -10,6 +10,7 @@ import { TOPOLOGY_DEMO_GRAPH } from './data/topologyDemoGraph'
 import { PICK_DEMO_GRAPH } from './data/pickDemoGraph'
 import { JOIN_LLM_DEMO_GRAPH } from './data/joinLlmDemoGraph'
 import { RAG_DEMO_GRAPH } from './data/ragDemoGraph'
+import { AGENT_DEMO_GRAPH } from './data/agentDemoGraph'
 import { SAMPLE_COMFY_WORKFLOW } from './data/sampleComfyWorkflow'
 import { buildStressGraph } from './data/stressGraph'
 import { applyGraph, type SerializedGraph } from './lib/serializeGraph'
@@ -34,6 +35,9 @@ async function bootstrap() {
     resetHistoryToCurrent()
   } else if (p.get('demo') === 'rag') {
     useGraphStore.getState().loadAppGraph(RAG_DEMO_GRAPH)
+    resetHistoryToCurrent()
+  } else if (p.get('demo') === 'agent') {
+    useGraphStore.getState().loadAppGraph(AGENT_DEMO_GRAPH)
     resetHistoryToCurrent()
   } else {
     const stress = p.get('stress')

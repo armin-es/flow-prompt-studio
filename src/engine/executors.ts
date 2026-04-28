@@ -2,8 +2,19 @@ import type { GraphNode } from '../types'
 import type { NodeOutput } from '../store/executionStore'
 import { postComplete } from '../lib/completeClient'
 import { postCompleteStream } from '../lib/completeStream'
+import { postCompleteTools } from '../lib/completeToolsClient'
+import type { AgentToolCall } from '../lib/completeToolsClient'
+import {
+  mergeToolsPayload,
+  TOOLS_DATA_TYPE,
+  toolsFrom,
+  type ToolDefinitionJson,
+  type ToolImplBinding,
+  type ToolsPayload,
+} from '../lib/toolsPayload'
+import { runBuiltinTool } from './agentBuiltinTools'
 import { chunkCorpus, formatCitationLabel } from './retrieve/chunk'
-import { useCorpusStore } from '../store/corpusStore'
+import { CORPUS_DEFAULT_ID, useCorpusStore } from '../store/corpusStore'
 import {
   cosineClientFallbackEnabled,
   preferServerCosineRetrieval,
@@ -34,6 +45,60 @@ function textFrom(v: NodeOutput | undefined): string {
     return ''
   }
   return String((v as { text?: string }).text ?? '')
+}
+
+function parseJsonSchemaObject(raw: string): Record<string, unknown> {
+  try {
+    const v = JSON.parse(raw) as unknown
+    return typeof v === 'object' && v != null && !Array.isArray(v)
+      ? (v as Record<string, unknown>)
+      : {}
+  } catch {
+    return {}
+  }
+}
+
+function safeToolFunctionName(raw: string): string {
+  let s = raw.trim().replace(/[^a-zA-Z0-9_]/g, '_').replace(/^_+/, '')
+  if (!s) s = 'tool'
+  if (/^[0-9]/.test(s)) s = `t_${s}`
+  return s.slice(0, 64)
+}
+
+function clampAgentSteps(v: unknown): number {
+  const n = Math.floor(Number(v))
+  if (!Number.isFinite(n)) return 6
+  return Math.min(20, Math.max(1, n))
+}
+
+type AgentChatMsg =
+  | { role: 'system'; content: string }
+  | { role: 'user'; content: string }
+  | {
+      role: 'assistant'
+      content: string | null
+      tool_calls?: Array<{
+        id: string
+        type: 'function'
+        function: { name: string; arguments: string }
+      }>
+    }
+  | { role: 'tool'; tool_call_id: string; content: string }
+
+function renderAgentTrace(
+  entries: Array<
+    | { kind: 'final' }
+    | { kind: 'tool'; name: string; ok: boolean; summary: string }
+  >,
+): string {
+  return entries
+    .map((e, i) => {
+      const n = i + 1
+      if (e.kind === 'final') return `${n}. Final answer`
+      const st = e.ok ? 'ok' : 'fail'
+      return `${n}. ${e.name} (${st}) — ${e.summary}`
+    })
+    .join('\n')
 }
 
 function delay(ms: number, signal: AbortSignal): Promise<void> {
@@ -345,6 +410,158 @@ const executors: Record<string, ExecutorFn> = {
           score: r.score,
         })),
       } as NodeOutput,
+    }
+  },
+
+  /** Merge two TOOLS payloads (fan-in for tool definitions). */
+  AppToolsJoin: async (_node, inputs) => {
+    const a = toolsFrom(inputs[0])
+    const b = toolsFrom(inputs[1])
+    return {
+      0: mergeToolsPayload(a, b),
+    }
+  },
+
+  /** Single OpenAI-style tool definition + built-in impl registry entry. */
+  AppTool: async (node) => {
+    const name = safeToolFunctionName(String(node.widgetValues[0] ?? 'tool'))
+    const description = String(node.widgetValues[1] ?? '').trim()
+    const schemaRaw = String(node.widgetValues[2] ?? '{}')
+    const parsed = parseJsonSchemaObject(schemaRaw)
+    const implRaw = String(node.widgetValues[3] ?? 'echo').toLowerCase()
+    const impl: ToolImplBinding['impl'] =
+      implRaw === 'retrieve' ||
+      implRaw === 'http_get' ||
+      implRaw === 'calc' ||
+      implRaw === 'echo'
+        ? implRaw
+        : 'echo'
+    const corpusId = String(node.widgetValues[4] ?? CORPUS_DEFAULT_ID).trim()
+
+    const parameters: Record<string, unknown> =
+      Object.keys(parsed).length > 0
+        ? parsed
+        : { type: 'object', properties: {} }
+
+    const def: ToolDefinitionJson = {
+      type: 'function',
+      function: {
+        name,
+        ...(description.length > 0 ? { description } : {}),
+        parameters,
+      },
+    }
+    const implByName: Record<string, ToolImplBinding> = {
+      [name]: {
+        impl,
+        ...(impl === 'retrieve' ? { corpusId } : {}),
+      },
+    }
+    const out: ToolsPayload = {
+      type: TOOLS_DATA_TYPE,
+      tools: [def],
+      implByName,
+    }
+    return { 0: out }
+  },
+
+  /**
+   * Tool-calling loop (server does one completion per step; tools run client-side).
+   */
+  AppAgent: async (node, inputs, onProgress, ctx) => {
+    const userPrompt = textFrom(inputs[0])
+    const registry = toolsFrom(inputs[1])
+    const stepBudget = clampAgentSteps(node.widgetValues[0])
+    const model = String(node.widgetValues[1] ?? 'gpt-4o-mini')
+    const system = String(node.widgetValues[2] ?? '').trim()
+
+    if (userPrompt.length === 0) {
+      throw new Error('Agent: connect a TEXT prompt or Input node.')
+    }
+
+    const trace: Array<
+      | { kind: 'final' }
+      | { kind: 'tool'; name: string; ok: boolean; summary: string }
+    > = []
+
+    const messages: AgentChatMsg[] = [
+      ...(system.length > 0 ? [{ role: 'system' as const, content: system }] : []),
+      { role: 'user', content: userPrompt },
+    ]
+
+    let lastAssistantText = ''
+
+    for (let step = 0; step < stepBudget; step++) {
+      if (ctx.signal.aborted) {
+        throw new DOMException('aborted', 'AbortError')
+      }
+      onProgress((step + 0.5) / stepBudget)
+
+      const r = await postCompleteTools(
+        {
+          model,
+          messages: messages as unknown[],
+          tools:
+            registry.tools.length > 0
+              ? (registry.tools as unknown[])
+              : ([] as unknown[]),
+        },
+        { signal: ctx.signal },
+      )
+
+      if (r.content != null && r.content.trim().length > 0) {
+        lastAssistantText = r.content.trim()
+      }
+
+      const calls: AgentToolCall[] = r.tool_calls ?? []
+
+      if (calls.length === 0) {
+        trace.push({ kind: 'final' })
+        const answer = r.content?.trim() ?? lastAssistantText
+        onProgress(1)
+        return {
+          0: { type: 'TEXT', text: answer },
+          1: { type: 'TEXT', text: renderAgentTrace(trace) },
+        }
+      }
+
+      messages.push({
+        role: 'assistant',
+        content: r.content,
+        tool_calls: calls.map((tc) => ({
+          id: tc.id,
+          type: 'function' as const,
+          function: { name: tc.name, arguments: tc.arguments },
+        })),
+      })
+
+      for (const tc of calls) {
+        if (ctx.signal.aborted) {
+          throw new DOMException('aborted', 'AbortError')
+        }
+        const out = await runBuiltinTool(tc, registry, ctx.signal)
+        trace.push({
+          kind: 'tool',
+          name: tc.name,
+          ok: out.ok,
+          summary: out.summary,
+        })
+        messages.push({
+          role: 'tool',
+          tool_call_id: tc.id,
+          content: out.text,
+        })
+      }
+
+      onProgress((step + 1) / stepBudget)
+    }
+
+    return {
+      0: {
+        type: 'TEXT',
+        text: `[budget exhausted]\n\n${lastAssistantText}`,
+      },
+      1: { type: 'TEXT', text: renderAgentTrace(trace) },
     }
   },
 }

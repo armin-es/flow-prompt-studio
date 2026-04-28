@@ -23,6 +23,7 @@ import { TOPOLOGY_DEMO_GRAPH } from '../data/topologyDemoGraph'
 import { PICK_DEMO_GRAPH } from '../data/pickDemoGraph'
 import { JOIN_LLM_DEMO_GRAPH } from '../data/joinLlmDemoGraph'
 import { RAG_DEMO_GRAPH } from '../data/ragDemoGraph'
+import { AGENT_DEMO_GRAPH } from '../data/agentDemoGraph'
 import { buildStressGraph } from '../data/stressGraph'
 import { NodePalette } from './NodePalette'
 import type { CreatableAppNodeType } from '../lib/createAppNode'
@@ -181,6 +182,17 @@ export function Toolbar({
           title="Question → Tee → Retrieve + Join → LLM; BM25 default (no key required for retrieval)"
         >
           RAG
+        </button>
+        <button
+          type="button"
+          className="btn"
+          onClick={() => {
+            loadAppGraph(AGENT_DEMO_GRAPH)
+            resetHistoryToCurrent()
+          }}
+          title="Question → Agent ← Join(tools); Tool nodes + POST /api/complete/tools (echo without key)"
+        >
+          Agent
         </button>
         <button
           type="button"

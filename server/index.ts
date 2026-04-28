@@ -7,6 +7,11 @@ import { cors } from 'hono/cors'
 import { streamSSE } from 'hono/streaming'
 import { z } from 'zod'
 import OpenAI from 'openai'
+import type {
+  ChatCompletion,
+  ChatCompletionMessageParam,
+  ChatCompletionTool,
+} from 'openai/resources/chat/completions'
 import { getDatabaseUrl, runMigrationsIfNeeded } from './db/client.js'
 import { createPersistenceApp } from './persistenceApi.js'
 import { clerkAuthMiddleware } from './clerkMiddleware.js'
@@ -62,6 +67,12 @@ app.use('/*', authMiddleware())
 const completeSchema = z.object({
   prompt: z.string().min(1, 'Prompt is required').max(32_000),
   system: z.string().max(8_000).optional(),
+})
+
+const completeToolsSchema = z.object({
+  model: z.string().min(1).max(128),
+  messages: z.array(z.unknown()).min(1).max(128),
+  tools: z.array(z.unknown()).max(64),
 })
 
 const embedSchema = z.object({
@@ -202,6 +213,55 @@ app.post('/api/complete', async (c) => {
   }
 })
 
+app.post('/api/complete/tools', async (c) => {
+  let body: unknown
+  try {
+    body = await c.req.json()
+  } catch {
+    return c.json({ error: 'Invalid JSON body' }, 400)
+  }
+  const parsed = completeToolsSchema.safeParse(body)
+  if (!parsed.success) {
+    const msg = parsed.error.issues.map((e) => e.message).join('; ')
+    return c.json({ error: msg || 'Invalid request' }, 400)
+  }
+  const { model, messages, tools } = parsed.data
+
+  const key = process.env.OPENAI_API_KEY
+  if (!key || key.length === 0) {
+    return c.json({
+      content: '[no key — agent disabled]',
+      tool_calls: [] as { id: string; name: string; arguments: string }[],
+    })
+  }
+
+  const openai = new OpenAI({ apiKey: key })
+  try {
+    const completion = (await openai.chat.completions.create({
+      model,
+      messages: messages as ChatCompletionMessageParam[],
+      ...(tools.length > 0 ? { tools: tools as ChatCompletionTool[] } : {}),
+    })) as ChatCompletion
+    const msg = completion.choices[0]?.message
+    const rawCalls = msg?.tool_calls
+    const tool_calls =
+      rawCalls?.map((tc: { id: string; function?: { name?: string; arguments?: string } }) => ({
+        id: tc.id,
+        name: tc.function?.name ?? '',
+        arguments: tc.function?.arguments ?? '{}',
+      })) ?? []
+    const content = msg?.content ?? null
+    return c.json({
+      content,
+      tool_calls,
+    })
+  } catch (e: unknown) {
+    const message =
+      e instanceof Error ? e.message : 'OpenAI request failed'
+    return c.json({ error: message }, 502)
+  }
+})
+
 app.post('/api/complete/stream', async (c) => {
   let body: unknown
   try {
@@ -320,7 +380,7 @@ serve(
           : isAuthEnabled()
             ? 'legacy'
             : 'off'
-      }  (…/api/health, /api/auth/*, /api/graphs*, /api/corpora*, POST /api/retrieve, /api/complete, /api/embed)`,
+      }  (…/api/health, /api/auth/*, /api/graphs*, /api/corpora*, POST /api/retrieve, /api/complete, /api/complete/tools, /api/embed)`,
     )
   },
 )

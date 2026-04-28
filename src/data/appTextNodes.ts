@@ -5,6 +5,7 @@
 
 export const APP_TEXT_NODE_TYPES = [
   'AppJoin',
+  'AppToolsJoin',
   'AppTee',
   'AppPrefix',
   'AppPick',
@@ -19,4 +20,6 @@ export const APP_INSPECTOR_TYPES = [
   'AppLlm',
   'AppOutput',
   ...APP_TEXT_NODE_TYPES,
+  'AppAgent',
+  'AppTool',
 ] as const
