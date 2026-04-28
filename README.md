@@ -94,7 +94,7 @@ For **Stage B** the API can use **Drizzle + PostgreSQL** when `DATABASE_URL` is 
 1. **Either** `npm run db:up` **or** `docker compose up -d` (image includes **pgvector**; port **5433** in [`docker-compose.yml`](./docker-compose.yml); service uses **`restart: unless-stopped`** so it comes back with Docker).
 2. `DATABASE_URL=postgresql://flow:flow@127.0.0.1:5433/flow_prompt` in `.env`, then `npm run db:migrate` (this script starts the container and **waits** for Postgres before migrating).
 3. `npm run db:studio` — same: starts DB if needed, waits, then opens Drizzle Studio (usually **https://local.drizzle.studio**).
-4. `GET /api/health` includes **`database: true`** when the pool connects.
+4. `GET /api/health` includes **`database: true`** when the pool connects. The API runs **Drizzle migrations** on startup; migration **`0001_corpora_composite_pk`** makes corpus ids (**e.g. `corpus-default`**) unique **per user** in Postgres so Clerk tenants no longer hit **`409` / missing corpus** when another account already used the same slug.
 
 **Client flags** (Vite, rebuild after changing):
 

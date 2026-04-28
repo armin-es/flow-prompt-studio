@@ -36,12 +36,16 @@ export async function rechunkCorpusForDb(
   const textChunks: TextChunk[] = chunkCorpus(body, { chunkSize, chunkOverlap })
   const rawDocs = body.split(DELIM).map((d) => d.trim()).filter(Boolean)
   if (rawDocs.length === 0) {
-    await db.delete(documents).where(eq(documents.corpusId, corpusId))
+    await db
+      .delete(documents)
+      .where(and(eq(documents.corpusId, corpusId), eq(documents.corpusUserId, userId)))
     return
   }
 
   await db.transaction(async (tx) => {
-    await tx.delete(documents).where(eq(documents.corpusId, corpusId))
+    await tx
+      .delete(documents)
+      .where(and(eq(documents.corpusId, corpusId), eq(documents.corpusUserId, userId)))
 
     const docIdToRowId = new Map<string, string>()
     for (let d = 0; d < rawDocs.length; d++) {
@@ -56,6 +60,7 @@ export async function rechunkCorpusForDb(
       const [ins] = await tx
         .insert(documents)
         .values({
+          corpusUserId: userId,
           corpusId,
           title,
           sha256: h,

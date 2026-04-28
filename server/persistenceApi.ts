@@ -236,7 +236,10 @@ export function createPersistenceApp(): Hono {
       chunkOverlap = Math.max(0, chunkSize - 1)
     }
     await db.insert(users).values({ id: uid }).onConflictDoNothing()
-    const [exists] = await db.select().from(corpora).where(eq(corpora.id, id))
+    const [exists] = await db
+      .select()
+      .from(corpora)
+      .where(and(eq(corpora.id, id), eq(corpora.userId, uid)))
     if (exists != null) {
       return c.json({ error: 'Corpus id already exists' }, 409)
     }
@@ -314,7 +317,7 @@ export function createPersistenceApp(): Hono {
         chunkOverlap,
         updatedAt: new Date(),
       })
-      .where(eq(corpora.id, id))
+      .where(and(eq(corpora.id, id), eq(corpora.userId, uid)))
       .returning()
     if (row == null) {
       return c.json({ error: 'Not found' }, 404)
@@ -383,7 +386,7 @@ export function createPersistenceApp(): Hono {
     const [row] = await db
       .update(corpora)
       .set({ body: merged.body, updatedAt: new Date() })
-      .where(eq(corpora.id, id))
+      .where(and(eq(corpora.id, id), eq(corpora.userId, uid)))
       .returning()
     await rechunkCorpusForDb(db, uid, id)
     scheduleEmbedAfterCorpusWrite(db, uid, id)
@@ -473,7 +476,7 @@ export function createPersistenceApp(): Hono {
         1 - (ch.embedding <=> $1::vector) AS score
       FROM chunks ch
       INNER JOIN documents d ON d.id = ch.document_id
-      INNER JOIN corpora co ON co.id = d.corpus_id
+      INNER JOIN corpora co ON co.user_id = d.corpus_user_id AND co.id = d.corpus_id
       WHERE co.id = $2 AND co.user_id = $3
         AND ch.embedding IS NOT NULL
       ORDER BY ch.embedding <=> $1::vector

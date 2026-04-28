@@ -32,7 +32,11 @@ export async function embedPendingChunksForCorpus(
     .from(chunks)
     .innerJoin(documents, eq(chunks.documentId, documents.id))
     .where(
-      and(eq(documents.corpusId, corpusId), sql`${chunks.embedding} IS NULL`),
+      and(
+        eq(documents.corpusId, corpusId),
+        eq(documents.corpusUserId, userId),
+        sql`${chunks.embedding} IS NULL`,
+      ),
     )
   if (pending.length === 0) {
     return { embedded: 0 }

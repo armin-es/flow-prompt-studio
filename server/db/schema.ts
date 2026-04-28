@@ -1,9 +1,11 @@
 import {
   boolean,
+  foreignKey,
   index,
   integer,
   jsonb,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uuid,
@@ -40,13 +42,14 @@ export const graphs = pgTable('graphs', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 })
 
+/** Corpus slug (`id`) is unique per user — composite PK `(user_id, id)`. */
 export const corpora = pgTable(
   'corpora',
   {
-    id: text('id').primaryKey(),
     userId: text('user_id')
-      .references(() => users.id)
-      .notNull(),
+      .notNull()
+      .references(() => users.id),
+    id: text('id').notNull(),
     name: text('name').notNull(),
     body: text('body').notNull().default(''),
     chunkSize: integer('chunk_size').notNull().default(800),
@@ -54,7 +57,10 @@ export const corpora = pgTable(
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },
-  (t) => [index('corpora_user_idx').on(t.userId)],
+  (t) => ({
+    pk: primaryKey({ columns: [t.userId, t.id] }),
+    corporaUserIdx: index('corpora_user_idx').on(t.userId),
+  }),
 )
 
 export const documents = pgTable(
@@ -63,15 +69,22 @@ export const documents = pgTable(
     id: uuid('id')
       .primaryKey()
       .default(sql`gen_random_uuid()`),
-    corpusId: text('corpus_id')
-      .references(() => corpora.id, { onDelete: 'cascade' })
-      .notNull(),
+    corpusUserId: text('corpus_user_id')
+      .notNull()
+      .references(() => users.id),
+    corpusId: text('corpus_id').notNull(),
     title: text('title').notNull(),
     sha256: text('sha256').notNull(),
     body: text('body').notNull(),
     addedAt: timestamp('added_at').defaultNow().notNull(),
   },
-  (t) => [index('documents_corpus_idx').on(t.corpusId)],
+  (t) => ({
+    corpusFk: foreignKey({
+      columns: [t.corpusUserId, t.corpusId],
+      foreignColumns: [corpora.userId, corpora.id],
+    }).onDelete('cascade'),
+    documentsCorpusIdx: index('documents_corpus_idx').on(t.corpusUserId, t.corpusId),
+  }),
 )
 
 export const chunks = pgTable(
