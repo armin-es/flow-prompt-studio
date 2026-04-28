@@ -1,4 +1,5 @@
 import { and, desc, eq } from 'drizzle-orm'
+import type { Context } from 'hono'
 import { Hono } from 'hono'
 import OpenAI from 'openai'
 import { z } from 'zod'
@@ -51,7 +52,11 @@ const runBody = z.object({
   error: z.string().max(4_000).optional().nullable(),
 })
 
-function userId(c: { req: { header: (k: string) => string | undefined } }): string {
+function userId(c: Context): string {
+  const clerkId = c.get('resolvedUserId')
+  if (typeof clerkId === 'string' && clerkId.length > 0) {
+    return clerkId
+  }
   return c.req.header('x-user-id')?.trim() || 'dev'
 }
 

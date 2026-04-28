@@ -1,5 +1,7 @@
+import { ClerkProvider } from '@clerk/clerk-react'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import { ClerkTokenBridge } from './components/ClerkTokenBridge'
 import './index.css'
 import { useGraphStore } from './store/graphStore'
 import { useCorpusStore } from './store/corpusStore'
@@ -68,9 +70,19 @@ async function bootstrap() {
 }
 
 void bootstrap().then(() => {
-  createRoot(document.getElementById('root')!).render(
+  const clerkPk = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY?.trim()
+  const inner = (
     <StrictMode>
       <App />
-    </StrictMode>,
+    </StrictMode>
+  )
+  createRoot(document.getElementById('root')!).render(
+    clerkPk ? (
+      <ClerkProvider publishableKey={clerkPk}>
+        <ClerkTokenBridge>{inner}</ClerkTokenBridge>
+      </ClerkProvider>
+    ) : (
+      inner
+    ),
   )
 })

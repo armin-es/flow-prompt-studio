@@ -2,6 +2,11 @@
 
 interface ImportMetaEnv {
   /**
+   * Clerk publishable key for the SPA (Dashboard → API keys). Pair with `CLERK_SECRET_KEY` on the API.
+   * When set, wraps the app in `ClerkProvider` and sends Bearer tokens to `/api/*`.
+   */
+  readonly VITE_CLERK_PUBLISHABLE_KEY?: string
+  /**
    * Public origin of the Hono API in production, e.g. `https://your-api.onrender.com`
    * (no path, no trailing slash). Empty in dev: requests use same-origin `/api/...` via the Vite proxy.
    */

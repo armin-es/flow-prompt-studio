@@ -724,6 +724,11 @@ html, body, #root {
   margin-right: 4px;
 }
 
+.toolbar-user {
+  display: flex;
+  align-items: center;
+}
+
 .toolbar-actions {
   display: flex;
   gap: 8px;

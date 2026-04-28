@@ -25,6 +25,8 @@
     "db:studio": "npm run db:up && node scripts/waitForDb.mjs && drizzle-kit studio"
   },
   "dependencies": {
+    "@clerk/backend": "^3.4.1",
+    "@clerk/clerk-react": "^5.61.6",
     "@hono/node-server": "^1.19.7",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.40.0",

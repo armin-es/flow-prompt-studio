@@ -20,9 +20,11 @@ npm run dev
 
 ### API authentication (optional)
 
-When **`AUTH_SECRET`** (≥32 chars) **and** **`AUTH_PASSWORD`** (≥8 chars) are set in `.env`, the UI shows a **sign-in** screen and all **`/api/*`** routes except **`/api/health`** and **`/api/auth/*`** require a **session cookie** or **`Authorization: Bearer <API_AUTH_TOKEN>`** (if `API_AUTH_TOKEN` is also set). Omit these variables for local dev without a gate.
+**Clerk (multi-tenant):** Set **`CLERK_SECRET_KEY`** on the API and **`VITE_CLERK_PUBLISHABLE_KEY`** on the frontend (same Clerk application). The server verifies `Authorization: Bearer <session JWT>` on **`/api/*`** except **`GET /api/health`**, **`GET /api/auth/status`**, and **`POST /api/auth/login`** / **`POST /api/auth/logout`**. Persisted graphs/corpora/runs are scoped by Clerk **`sub`** as `user_id`. Without these keys, local dev keeps the legacy **`dev`** user when **`DATABASE_URL`** is unset or you still pass **`X-User-Id`** for manual testing.
 
-Split UI/API hosts need matching **`CORS_ORIGINS`** (your site origin) and, on HTTPS, consider **`AUTH_COOKIE_SECURE=1`**.
+**Legacy cookie/Bearer:** When **`AUTH_SECRET`** (≥32 chars) **and** **`AUTH_PASSWORD`** (≥8 chars) are set in `.env`, the UI shows a **password** gate and all **`/api/*`** routes except **`/api/health`** and **`/api/auth/*`** require a **session cookie** or **`Authorization: Bearer <API_AUTH_TOKEN>`** (if `API_AUTH_TOKEN` is also set). Omit these variables for local dev without a gate.
+
+Split UI/API hosts need matching **`CORS_ORIGINS`** (your site origin) and, on HTTPS, consider **`AUTH_COOKIE_SECURE=1`** for legacy sessions.
 
 `npm run dev:client` runs only the UI (completions need `/api` elsewhere or will fail for LLM steps).
 

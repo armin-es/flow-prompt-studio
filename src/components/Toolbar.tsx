@@ -1,3 +1,4 @@
+import { SignedIn, UserButton } from '@clerk/clerk-react'
 import { useMemo } from 'react'
 import { useGraphStore } from '../store/graphStore'
 import { useExecutionStore } from '../store/executionStore'
@@ -117,6 +118,13 @@ export function Toolbar({
     <div className="toolbar">
       <div className="toolbar-upper">
         <span className="toolbar-title">Flow Prompt</span>
+        {import.meta.env.VITE_CLERK_PUBLISHABLE_KEY ? (
+          <SignedIn>
+            <span className="toolbar-user">
+              <UserButton />
+            </span>
+          </SignedIn>
+        ) : null}
 
         <div className="toolbar-actions">
         <button
@@ -219,7 +227,7 @@ export function Toolbar({
                   )
                 }
               }}
-              title="POST /api/graphs (needs DATABASE_URL, VITE_SYNC_SERVER=1, X-User-Id: dev)"
+              title="POST /api/graphs (needs DATABASE_URL, VITE_SYNC_SERVER=1; Clerk or X-User-Id scopes tenant)"
             >
               Save to server
             </button>

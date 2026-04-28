@@ -1,3 +1,4 @@
+import { SignIn, useAuth } from '@clerk/clerk-react'
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { apiFetch } from '../lib/apiFetch'
 import { apiPath } from '../lib/serverApi'
@@ -8,6 +9,7 @@ type GateState =
   | { phase: 'login'; error: string | null }
   | { phase: 'blocked' }
   | { phase: 'error'; message: string }
+  | { phase: 'clerk' }
 
 export function AuthGate({ children }: { children: ReactNode }) {
   const [state, setState] = useState<GateState>({ phase: 'loading' })
@@ -42,6 +44,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
       authenticated?: boolean
       authDisabled?: boolean
       loginWithPassword?: boolean
+      useClerk?: boolean
     }
     try {
       j = JSON.parse(text) as typeof j
@@ -57,6 +60,10 @@ export function AuthGate({ children }: { children: ReactNode }) {
     }
     if (j.authenticated) {
       setState({ phase: 'ready' })
+      return
+    }
+    if (j.useClerk) {
+      setState({ phase: 'clerk' })
       return
     }
     if (j.loginWithPassword) {
@@ -123,6 +130,22 @@ export function AuthGate({ children }: { children: ReactNode }) {
     return <>{children}</>
   }
 
+  if (state.phase === 'clerk') {
+    const pk = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY?.trim()
+    if (!pk) {
+      return (
+        <div className="auth-gate">
+          <p className="auth-gate-title">Clerk UI key missing</p>
+          <p className="auth-gate-body">
+            The API uses Clerk (<code>CLERK_SECRET_KEY</code>). Set{' '}
+            <code>VITE_CLERK_PUBLISHABLE_KEY</code> for this frontend and redeploy so sign-in works.
+          </p>
+        </div>
+      )
+    }
+    return <ClerkSignedInGate>{children}</ClerkSignedInGate>
+  }
+
   if (state.phase === 'error') {
     return (
       <div className="auth-gate">
@@ -170,6 +193,25 @@ export function AuthGate({ children }: { children: ReactNode }) {
       onSubmit={onSubmitPassword}
     />
   )
+}
+
+function ClerkSignedInGate({ children }: { children: ReactNode }) {
+  const { isLoaded, isSignedIn } = useAuth()
+  if (!isLoaded) {
+    return (
+      <div className="auth-gate">
+        <p className="auth-gate-title">Loading…</p>
+      </div>
+    )
+  }
+  if (!isSignedIn) {
+    return (
+      <div className="auth-gate">
+        <SignIn routing="hash" />
+      </div>
+    )
+  }
+  return <>{children}</>
 }
 
 function LoginForm({

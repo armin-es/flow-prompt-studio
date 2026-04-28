@@ -9,12 +9,14 @@ import { z } from 'zod'
 import OpenAI from 'openai'
 import { getDatabaseUrl, runMigrationsIfNeeded } from './db/client.js'
 import { createPersistenceApp } from './persistenceApi.js'
+import { clerkAuthMiddleware } from './clerkMiddleware.js'
 import {
   authMiddleware,
   clearSessionCookie,
   getAuthStatusPayload,
   hasPasswordLogin,
   isAuthEnabled,
+  isClerkAuthConfigured,
   issueSessionCookie,
   validateLoginPassword,
 } from './auth.js'
@@ -54,6 +56,7 @@ app.use(
   }),
 )
 
+app.use('/*', clerkAuthMiddleware())
 app.use('/*', authMiddleware())
 
 const completeSchema = z.object({
@@ -311,7 +314,13 @@ serve(
     console.log(
       `[flow-prompt-studio] API http://127.0.0.1:${info.port}  database=${
         db ? 'on' : 'off'
-      }  auth=${isAuthEnabled() ? 'on' : 'off'}  (…/api/health, /api/auth/*, /api/graphs*, /api/corpora*, POST /api/retrieve, /api/complete, /api/embed)`,
+      }  auth=${
+        isClerkAuthConfigured()
+          ? 'clerk'
+          : isAuthEnabled()
+            ? 'legacy'
+            : 'off'
+      }  (…/api/health, /api/auth/*, /api/graphs*, /api/corpora*, POST /api/retrieve, /api/complete, /api/embed)`,
     )
   },
 )

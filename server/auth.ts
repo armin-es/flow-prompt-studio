@@ -23,6 +23,11 @@ function bearerToken(): string | undefined {
   return t != null && t.length >= 16 ? t : undefined
 }
 
+/** When `CLERK_SECRET_KEY` is set, `/api/*` uses Clerk JWTs (see `clerkMiddleware.ts`). */
+export function isClerkAuthConfigured(): boolean {
+  return Boolean(process.env.CLERK_SECRET_KEY?.trim())
+}
+
 /** When true, `/api/*` (except health + auth probe/login/logout) requires a session cookie or valid Bearer token. */
 export function isAuthEnabled(): boolean {
   if (secretBytes() == null) {
@@ -130,6 +135,10 @@ export function authMiddleware(): MiddlewareHandler {
     if (skipAuthPath(path, c.req.method)) {
       return next()
     }
+    const clerkId = c.get('resolvedUserId')
+    if (typeof clerkId === 'string' && clerkId.length > 0) {
+      return next()
+    }
     if (bearerMatches(c.req.header('Authorization'))) {
       return next()
     }
@@ -148,16 +157,47 @@ export async function getAuthStatusPayload(c: Context): Promise<{
   authenticated: boolean
   authDisabled: boolean
   loginWithPassword: boolean
+  useClerk: boolean
 }> {
-  if (!isAuthEnabled()) {
-    return { authenticated: true, authDisabled: true, loginWithPassword: false }
+  const clerkConfigured = isClerkAuthConfigured()
+
+  if (!isAuthEnabled() && !clerkConfigured) {
+    return {
+      authenticated: true,
+      authDisabled: true,
+      loginWithPassword: false,
+      useClerk: false,
+    }
   }
+
+  const resolved = c.get('resolvedUserId')
+  const clerkOk = typeof resolved === 'string' && resolved.length > 0
+
+  if (clerkConfigured && clerkOk) {
+    return {
+      authenticated: true,
+      authDisabled: false,
+      loginWithPassword: false,
+      useClerk: true,
+    }
+  }
+
+  if (clerkConfigured && !clerkOk) {
+    return {
+      authenticated: false,
+      authDisabled: false,
+      loginWithPassword: false,
+      useClerk: true,
+    }
+  }
+
   const cookieOk = await verifySessionCookie(c)
   const bearerOk = bearerMatches(c.req.header('Authorization'))
   return {
     authenticated: cookieOk || bearerOk,
     authDisabled: false,
     loginWithPassword: hasPasswordLogin(),
+    useClerk: false,
   }
 }
 
