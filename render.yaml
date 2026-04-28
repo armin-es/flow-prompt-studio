@@ -13,6 +13,9 @@ services:
     envVars:
       - key: NODE_VERSION
         value: "20"
+      # Supabase/Postgres: prefer IPv4 — avoids ENETUNREACH when Render has no IPv6 egress (see DEPLOY.md).
+      - key: NODE_OPTIONS
+        value: "--dns-result-order=ipv4first"
       # Required for browser UI on another origin (e.g. https://*.vercel.app)
       - key: CORS_ORIGINS
         sync: false

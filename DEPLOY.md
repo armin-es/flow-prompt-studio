@@ -165,5 +165,6 @@ Keep **`VITE_API_ORIGIN`** set to your Render API. Redeploy after changing env v
 ## 6. Troubleshooting
 
 - **CORS errors in the browser console:** `CORS_ORIGINS` must include the UI’s origin string-for-string (`https://foo.vercel.app` ≠ `https://www.foo.vercel.app`).
-- **`401 Unauthorized` on `/api/*`:** API has **`AUTH_SECRET`** + **`AUTH_PASSWORD`** set; either sign in through the UI or unset auth env vars for a public echo demo.
+- **`401 Unauthorized` on `/api/*`:** API has **`AUTH_SECRET`** + **`AUTH_PASSWORD`** set; either sign in through the UI or unset auth vars for a public echo demo.
 - **`fetch failed` / wrong API:** Confirm `VITE_API_ORIGIN` was set **before** the last UI build (Vite inlines env at build time).
+- **`DB migration failed` / `connect ENETUNREACH` to an IPv6 address (`2600:…`) — Render (and many hosts) often has no working **IPv6 egress**, while `db.*.supabase.co` can resolve to IPv6 first. **Fix:** On the API service, add environment variable **`NODE_OPTIONS`** = **`--dns-result-order=ipv4first`** so Node prefers IPv4 when connecting to Postgres. Redeploy. (Alternative: Supabase **IPv4 add-on** or a host that supports IPv6 — rarely needed if `ipv4first` works.)
