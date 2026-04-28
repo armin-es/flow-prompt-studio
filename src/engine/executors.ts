@@ -8,6 +8,8 @@ import {
   cosineClientFallbackEnabled,
   preferServerCosineRetrieval,
   retrieveFromServer,
+  serverSyncEnabled,
+  syncCorpusToServer,
 } from '../lib/serverApi'
 import { rankChunksForQuery } from './retrieve/rankRetrieve'
 
@@ -197,7 +199,7 @@ const executors: Record<string, ExecutorFn> = {
       throw new Error('Retrieve: connect a query (TEXT) input.')
     }
     const k = Math.min(10, Math.max(1, Math.floor(Number(node.widgetValues[0] ?? 3) || 3)))
-    const corpusId = String(node.widgetValues[1] ?? 'corpus-default')
+    const corpusId = String(node.widgetValues[1] ?? 'corpus-default').trim()
     const corpus = useCorpusStore.getState().getBody(corpusId)
     if (corpus.length > 65_536) {
       throw new Error(
@@ -212,6 +214,16 @@ const executors: Record<string, ExecutorFn> = {
     const simRaw = String(node.widgetValues[4] ?? 'bm25').toLowerCase()
     const mode: 'bm25' | 'cosine' = simRaw === 'cosine' ? 'cosine' : 'bm25'
     if (mode === 'cosine' && preferServerCosineRetrieval()) {
+      if (serverSyncEnabled()) {
+        const entry = useCorpusStore.getState().getEntry(corpusId)
+        if (entry != null) {
+          try {
+            await syncCorpusToServer(entry)
+          } catch {
+            // retrieveFromServer may still explain missing corpus / DB
+          }
+        }
+      }
       try {
         const { rows, fallbackNote } = await retrieveFromServer(
           corpusId,
@@ -246,8 +258,12 @@ const executors: Record<string, ExecutorFn> = {
       } catch (e) {
         if (!cosineClientFallbackEnabled()) {
           const detail = e instanceof Error ? e.message : String(e)
+          const corpusHint = /No corpus\b|corpus_not_found/i.test(detail)
+          const tail = corpusHint
+            ? 'Enable VITE_SYNC_SERVER=1 on the client build, sign in (Clerk JWT), and redeploy; or set VITE_COSINE_CLIENT_FALLBACK=1 for in-browser cosine.'
+            : 'Ensure DATABASE_URL on the API, corpora synced (VITE_SYNC_SERVER), embeddings (OPENAI_API_KEY on API or POST /api/corpora/<id>/embed), or VITE_COSINE_CLIENT_FALLBACK=1.'
           throw new Error(
-            `Retrieve (cosine): server path failed and client fallback is disabled. ${detail} — Ensure DATABASE_URL on the API, corpora synced (VITE_SYNC_SERVER), chunk embeddings in Postgres (auto-embed after save when OPENAI_API_KEY is set; wait and retry, or POST /api/corpora/<id>/embed), or set VITE_COSINE_CLIENT_FALLBACK=1 to allow in-browser cosine (IndexedDB cache).`,
+            `Retrieve (cosine): server path failed and client fallback is disabled. ${detail} ${tail}`,
             { cause: e },
           )
         }

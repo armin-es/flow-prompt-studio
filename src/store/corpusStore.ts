@@ -130,11 +130,14 @@ export const useCorpusStore = create<CorpusState>()((set, get) => ({
       set({ byId })
       return
     }
-    // Server is reachable and has no corpora: push local IndexedDB state once per load
+    // Server is reachable and has no corpora: push local IndexedDB state once per load.
+    // Await so corpus-default exists before the user runs cosine retrieve against POST /api/retrieve.
     for (const e of sortEntries(Object.values(get().byId))) {
-      void syncCorpusToServer(e).catch(() => {
+      try {
+        await syncCorpusToServer(e)
+      } catch {
         // ignore per-corpus errors (e.g. still 503)
-      })
+      }
     }
   },
 
