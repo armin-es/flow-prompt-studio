@@ -84,16 +84,76 @@ vercel --prod
 
 ---
 
-## 4. Checklist
+## 4. PostgreSQL + pgvector (`DATABASE_URL`)
+
+Persistence (graphs, corpora, chunk embeddings, runs) needs **PostgreSQL** with the **`vector`** extension (**pgvector**). The API applies Drizzle migrations **on startup** when `DATABASE_URL` is set (`runMigrationsIfNeeded` in `server/db/client.ts`).
+
+### Requirements
+
+- Postgres **14+** with **`CREATE EXTENSION vector`** allowed (migration `0000_init.sql` creates it).
+- Connection string in **`DATABASE_URL`** (single URL, typically with **`sslmode=require`** for cloud hosts).
+
+### Local (Docker)
+
+From the repo root:
+
+```bash
+docker compose up -d
+npm run db:migrate
+```
+
+Set in **`.env`** (same values as `docker-compose.yml`):
+
+```env
+DATABASE_URL=postgresql://flow:flow@127.0.0.1:5433/flow_prompt
+```
+
+Restart **`npm run dev`** (or **`npm run dev:server`**). **`GET /api/health`** should show **`"database": true`**.
+
+### Hosted options (production API)
+
+Use any managed Postgres that ships **pgvector** (or lets you enable it). Examples:
+
+| Provider | Notes |
+|----------|--------|
+| **[Neon](https://neon.tech/)** | Enable **pgvector** in project settings; copy pooled connection string; append **`?sslmode=require`** if not already present. |
+| **[Supabase](https://supabase.com/)** | Postgres includes pgvector; use **Connection string** (URI) from **Project Settings → Database**. |
+| **[Render Postgres](https://render.com/docs/databases)** | Create a **PostgreSQL** instance and link it to your Web Service so **`DATABASE_URL`** is injected — confirm **`vector`** extension is available (Postgres 15+ images often work; if migration fails, use Neon/Supabase instead). |
+
+### Wire the API (e.g. Render)
+
+1. Create the database and copy the **connection URI**.
+2. On the **API** service → **Environment** → add **`DATABASE_URL`** (paste URI; add **`?sslmode=require`** if the provider expects SSL and it’s missing).
+3. **Save** and redeploy. Watch logs: migration runs once at boot; errors usually mean wrong URL or missing pgvector.
+4. **`curl https://<api>/api/health`** → **`"database": true`**.
+
+### Wire the UI (Vercel)
+
+Rebuild the static site with server sync enabled so the toolbar can save graphs/corpora to Postgres:
+
+| Variable | Value |
+|----------|--------|
+| **`VITE_SYNC_SERVER`** | **`1`** |
+
+Keep **`VITE_API_ORIGIN`** set to your Render API. Redeploy after changing env vars.
+
+### Optional
+
+- **`SKIP_AUTO_EMBED=1`** on the API — skip background embedding after corpus writes (saves OpenAI calls during tests).
+
+---
+
+## 5. Checklist
 
 - [ ] `GET https://<api>/api/health` → 200 JSON.
 - [ ] `CORS_ORIGINS` on the API includes the exact Vercel UI origin (scheme + host).
 - [ ] `VITE_API_ORIGIN` on Vercel matches the API origin used in the browser.
 - [ ] UI loads, **Run** finishes (OpenAI output or echo).
+- [ ] If using Postgres: **`"database": true`** on **`/api/health`** and **`VITE_SYNC_SERVER=1`** on Vercel when you want server persistence.
 
 ---
 
-## 5. Troubleshooting
+## 6. Troubleshooting
 
 - **CORS errors in the browser console:** `CORS_ORIGINS` must include the UI’s origin string-for-string (`https://foo.vercel.app` ≠ `https://www.foo.vercel.app`).
 - **`401 Unauthorized` on `/api/*`:** API has **`AUTH_SECRET`** + **`AUTH_PASSWORD`** set; either sign in through the UI or unset auth env vars for a public echo demo.
