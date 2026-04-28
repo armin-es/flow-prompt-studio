@@ -2,7 +2,7 @@ import type { AppGraphState } from './defaultAppGraph'
 import { CORPUS_DEFAULT_ID } from '../store/corpusStore'
 
 /**
- * Question → **Agent** ← tools merged from **retrieve** + **echo** Tool leaves → **Output**.
+ * Question → **Agent** ← tools merged from **retrieve** + **echo** Tool leaves → **Answer** + **Trace** outputs.
  * With no API key, the agent answers from `[no key — agent disabled]` (same story as LLM echo).
  */
 export const AGENT_DEMO_GRAPH: AppGraphState = {
@@ -107,10 +107,21 @@ export const AGENT_DEMO_GRAPH: AppGraphState = {
     {
       id: 'agent-output',
       type: 'AppOutput',
-      label: 'Output',
-      position: { x: 1120, y: 220 },
+      label: 'Answer',
+      position: { x: 1120, y: 140 },
       width: 300,
       height: 120,
+      inputs: [{ name: 'in', dataType: 'TEXT' }],
+      outputs: [],
+      widgetValues: [],
+    },
+    {
+      id: 'agent-trace-output',
+      type: 'AppOutput',
+      label: 'Trace',
+      position: { x: 1120, y: 300 },
+      width: 300,
+      height: 160,
       inputs: [{ name: 'in', dataType: 'TEXT' }],
       outputs: [],
       widgetValues: [],
@@ -150,6 +161,13 @@ export const AGENT_DEMO_GRAPH: AppGraphState = {
       sourceNodeId: 'agent-node',
       sourcePortIndex: 0,
       targetNodeId: 'agent-output',
+      targetPortIndex: 0,
+    },
+    {
+      id: 'agent-e-trace',
+      sourceNodeId: 'agent-node',
+      sourcePortIndex: 1,
+      targetNodeId: 'agent-trace-output',
       targetPortIndex: 0,
     },
   ],

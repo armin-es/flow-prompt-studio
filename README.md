@@ -35,7 +35,7 @@ Split UI/API hosts need matching **`CORS_ORIGINS`** (your site origin) and, on H
 | `npm run dev` | Vite + API (`concurrently`) |
 | `npm run build` | Client production build |
 | `npm run test` | Unit tests (Vitest) |
-| `npm run eval` | RAG eval harness (Stage D4): recall@K / MRR vs `data/evals/default.json`; BM25 by default, `npm run eval -- --cosine` needs `OPENAI_API_KEY` |
+| `npm run eval` | Retrieval metrics (recall@K / MRR vs `data/evals/default.json`; BM25 by default) **then** Vitest graph smoke (`src/eval/graphSmoke.test.ts`) for **RAG** + **Agent** executor chains with mocks — **CI-safe**, no API. `npm run eval -- --retrieval-only` skips smoke tests; `npm run eval -- --cosine` uses embeddings (`OPENAI_API_KEY`) |
 | `npm run typecheck:server` | Typecheck `server/index.ts` |
 | `npm start` | API only (production-style; `PORT` from env) |
 | `npm run db:generate` / `db:migrate` / `db:push` / `db:studio` | Drizzle + Postgres (Stage B); `db:up` starts Docker; `db:migrate` / `db:studio` run `db:up` and **wait** until the DB port accepts connections (avoids `ECONNREFUSED` right after `compose up`) |
@@ -50,7 +50,7 @@ Split UI/API hosts need matching **`CORS_ORIGINS`** (your site origin) and, on H
 | `demo` | `?demo=pick` | **Pick 2→1** demo: two sources, one chosen output |
 | `demo` | `?demo=joinllm` | **Join+LLM**: two **AppInput**s → **AppJoin** → **AppLlm** → **AppOutput** |
 | `demo` | `?demo=rag` | **RAG**: Question → **Tee** → **Retrieve** + **Join** → **AppLlm** → **AppOutput** (BM25 retrieval needs no key; LLM may echo without key) |
-| `demo` | `?demo=agent` | **Agent**: Question → **AppAgent** ← **AppToolsJoin**(**Tool** + **Tool**); tool-calling via **`POST /api/complete/tools`** (same echo-without-key behavior when no `OPENAI_API_KEY`) |
+| `demo` | `?demo=agent` | **Agent**: Question → **AppAgent** ← **AppToolsJoin**(**Tool** + **Tool**) → **Answer** + **Trace** outputs; **`POST /api/complete/tools`** (echo/disabled when no `OPENAI_API_KEY`) |
 | `stress` | `?stress=150` | Stress test graph with **N** chained nodes (capped in code) |
 
 ## Toolbar (quick)
