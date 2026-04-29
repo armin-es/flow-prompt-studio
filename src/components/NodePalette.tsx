@@ -14,6 +14,16 @@ const ITEMS: { type: CreatableAppNodeType; short: string; title: string }[] = [
     title: 'Add Retrieve (BM25/cosine over in-node corpus)',
   },
   {
+    type: 'AppSpamRules',
+    short: 'Spam rules',
+    title: 'Add Spam rules (Stage A; POST /api/spam/evaluate)',
+  },
+  {
+    type: 'AppSpamItemSource',
+    short: 'Spam item',
+    title: 'Load spam queue row by UUID (GET /api/spam/items/:id)',
+  },
+  {
     type: 'AppToolsJoin',
     short: 'Join⊕',
     title: 'Add Join for TOOLS (merge two tool defs)',

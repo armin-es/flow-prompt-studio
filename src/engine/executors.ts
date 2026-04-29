@@ -23,6 +23,10 @@ import {
   syncCorpusToServer,
 } from '../lib/serverApi'
 import { rankChunksForQuery } from './retrieve/rankRetrieve'
+import { apiFetch } from '../lib/apiFetch'
+import { apiPath } from '../lib/serverApi'
+
+const SPAM_USER_HEADER = { 'X-User-Id': 'dev' }
 
 type Inputs = Record<number, NodeOutput | undefined>
 type Outputs = Record<number, NodeOutput>
@@ -410,6 +414,90 @@ const executors: Record<string, ExecutorFn> = {
           score: r.score,
         })),
       } as NodeOutput,
+    }
+  },
+
+  /**
+   * Stage A spam rules (server): POST /api/spam/evaluate using tenant rules in Postgres.
+   * Inputs: TEXT body, optional TEXT JSON author features.
+   */
+  AppSpamRules: async (_node, inputs, onProgress, ctx) => {
+    void onProgress
+    const body = textFrom(inputs[0])
+    if (!body.trim()) {
+      throw new Error('Spam rules: connect a TEXT body.')
+    }
+    let authorFeatures: Record<string, unknown> = {}
+    const featText = textFrom(inputs[1])
+    if (featText.trim()) {
+      try {
+        const j = JSON.parse(featText) as unknown
+        if (typeof j === 'object' && j != null && !Array.isArray(j)) {
+          authorFeatures = j as Record<string, unknown>
+        } else {
+          throw new Error('must be a JSON object')
+        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e)
+        throw new Error(`Spam rules: optional input 1 must be JSON object (${msg}).`, {
+          cause: e,
+        })
+      }
+    }
+    const res = await apiFetch(apiPath('/api/spam/evaluate'), {
+      method: 'POST',
+      headers: { ...SPAM_USER_HEADER, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ body, authorFeatures }),
+      signal: ctx.signal,
+    })
+    if (!res.ok) {
+      const t = await res.text()
+      throw new Error(`Spam rules: API ${res.status} ${t}`)
+    }
+    const out = (await res.json()) as {
+      score: number
+      matches: unknown
+      derivedStatus: string
+    }
+    const text = JSON.stringify(
+      {
+        score: out.score,
+        derivedStatus: out.derivedStatus,
+        matches: out.matches,
+      },
+      null,
+      2,
+    )
+    return { 0: { type: 'TEXT', text } }
+  },
+
+  /**
+   * Loads a persisted spam queue row for studio testing (GET /api/spam/items/:id).
+   * Widget: spam item UUID (from `/spam?item=` URL).
+   */
+  AppSpamItemSource: async (node, inputs, onProgress, ctx) => {
+    void inputs
+    void onProgress
+    const raw = String(node.widgetValues[0] ?? '').trim()
+    if (!raw) {
+      throw new Error('Spam item: paste item id (UUID) from /spam inbox.')
+    }
+    const res = await apiFetch(apiPath(`/api/spam/items/${encodeURIComponent(raw)}`), {
+      headers: SPAM_USER_HEADER,
+      signal: ctx.signal,
+    })
+    if (!res.ok) {
+      const t = await res.text()
+      throw new Error(`Spam item: ${res.status} ${t}`)
+    }
+    const data = (await res.json()) as {
+      item?: { body: string; authorFeatures?: unknown }
+    }
+    const body = data.item?.body ?? ''
+    const featJson = JSON.stringify(data.item?.authorFeatures ?? {}, null, 2)
+    return {
+      0: { type: 'TEXT', text: body },
+      1: { type: 'TEXT', text: featJson },
     }
   },
 

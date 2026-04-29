@@ -15,6 +15,13 @@
       "when": 1777194000000,
       "tag": "0001_corpora_composite_pk",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1777200000000,
+      "tag": "0002_spam_phase0",
+      "breakpoints": true
     }
   ]
 }

@@ -222,6 +222,9 @@ export function Toolbar({
         <button type="button" className="btn" onClick={onExportGraph}>
           Export
         </button>
+        <a className="btn" href="/spam" title="Spam triage inbox (Phase 0)">
+          Spam
+        </a>
         {serverSyncEnabled() && (
           <>
             <button

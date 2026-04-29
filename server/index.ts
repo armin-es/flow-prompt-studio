@@ -14,6 +14,7 @@ import type {
 } from 'openai/resources/chat/completions'
 import { getDatabaseUrl, runMigrationsIfNeeded } from './db/client.js'
 import { createPersistenceApp } from './persistenceApi.js'
+import { createSpamApp } from './spam/spamApi.js'
 import { clerkAuthMiddleware } from './clerkMiddleware.js'
 import {
   authMiddleware,
@@ -360,6 +361,7 @@ app.post('/api/complete/stream', async (c) => {
   })
 })
 
+app.route('/api/spam', createSpamApp())
 app.route('/api', createPersistenceApp())
 
 const port = Number(process.env.PORT) || 8787
@@ -380,7 +382,7 @@ serve(
           : isAuthEnabled()
             ? 'legacy'
             : 'off'
-      }  (…/api/health, /api/auth/*, /api/graphs*, /api/corpora*, POST /api/retrieve, /api/complete, /api/complete/tools, /api/embed)`,
+      }  (…/api/health, /api/auth/*, /api/graphs*, /api/corpora*, /api/spam/* (+ Stage B score), POST /api/retrieve, /api/complete, /api/complete/tools, /api/embed)`,
     )
   },
 )

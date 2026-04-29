@@ -229,6 +229,27 @@ export function NodeInspector() {
           </p>
         </>
       )}
+      {node.type === 'AppSpamItemSource' && (
+        <label className="node-inspector-field">
+          <span>Spam item id (UUID)</span>
+          <input
+            className="node-inspector-input"
+            type="text"
+            value={String(node.widgetValues[0] ?? '')}
+            placeholder="from /spam?item=…"
+            onChange={(e) => setNodeWidgetValue(node.id, 0, e.target.value)}
+            onBlur={() => useHistoryStore.getState().commit()}
+            spellCheck={false}
+          />
+        </label>
+      )}
+      {node.type === 'AppSpamRules' && (
+        <p className="node-inspector-hint">
+          Connect <strong>body</strong> (TEXT). Optional <strong>features JSON</strong> for{' '}
+          <code>account_age_days</code>, <code>prior_strikes</code>, etc. Output is JSON with{' '}
+          <code>score</code> and <code>derivedStatus</code>.
+        </p>
+      )}
       {node.type === 'AppRetrieve' && (
         <>
           <label className="node-inspector-field">

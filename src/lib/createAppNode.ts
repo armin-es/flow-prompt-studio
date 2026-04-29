@@ -20,6 +20,8 @@ export type CreatableAppNodeType =
   | 'AppPrefix'
   | 'AppPick'
   | 'AppRetrieve'
+  | 'AppSpamRules'
+  | 'AppSpamItemSource'
   | 'AppAgent'
   | 'AppTool'
 
@@ -120,6 +122,28 @@ export function createAppNode(
         outputs: [{ name: 'snippets', dataType: TEXT }],
         widgetValues: [3, CORPUS_DEFAULT_ID, 800, 100, 'bm25'],
       }
+    case 'AppSpamRules':
+      return {
+        ...base,
+        type: 'AppSpamRules',
+        inputs: [
+          { name: 'body', dataType: TEXT },
+          { name: 'features JSON', dataType: TEXT },
+        ],
+        outputs: [{ name: 'scores', dataType: TEXT }],
+        widgetValues: [],
+      }
+    case 'AppSpamItemSource':
+      return {
+        ...base,
+        type: 'AppSpamItemSource',
+        inputs: [],
+        outputs: [
+          { name: 'body', dataType: TEXT },
+          { name: 'features JSON', dataType: TEXT },
+        ],
+        widgetValues: [''],
+      }
     case 'AppToolsJoin':
       return {
         ...base,
@@ -184,6 +208,10 @@ function defaultLabel(t: CreatableAppNodeType): string {
       return 'Pick'
     case 'AppRetrieve':
       return 'Retrieve'
+    case 'AppSpamRules':
+      return 'Spam rules'
+    case 'AppSpamItemSource':
+      return 'Spam item'
     case 'AppToolsJoin':
       return 'Join (tools)'
     case 'AppAgent':
@@ -212,6 +240,10 @@ function defaultWidth(t: CreatableAppNodeType): number {
       return 250
     case 'AppRetrieve':
       return 320
+    case 'AppSpamRules':
+      return 300
+    case 'AppSpamItemSource':
+      return 260
     case 'AppAgent':
       return 340
     case 'AppTool':
@@ -242,6 +274,10 @@ function defaultHeight(t: CreatableAppNodeType): number {
       return 130
     case 'AppRetrieve':
       return 400
+    case 'AppSpamRules':
+      return 200
+    case 'AppSpamItemSource':
+      return 160
     case 'AppAgent':
       return 420
     case 'AppTool':
