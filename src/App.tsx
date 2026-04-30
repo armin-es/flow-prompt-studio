@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { AuthGate } from './components/AuthGate'
 import { GraphEditor } from './components/GraphEditor'
 import { ErrorBoundary } from './components/ErrorBoundary'
+import { DialogHost } from './components/DialogHost'
 import { SpamPage } from './spam/SpamPage'
 
 function usePathname(): string {
@@ -26,6 +27,7 @@ export default function App() {
       <AuthGate>
         {spam ? <SpamPage /> : <GraphEditor />}
       </AuthGate>
+      <DialogHost />
     </ErrorBoundary>
   )
 }

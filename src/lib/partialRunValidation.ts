@@ -62,10 +62,10 @@ export function whyPartialRunInvalid(
   cachedStamps: Record<string, string>,
 ): string | null {
   if (Object.keys(portOutputs).length === 0) {
-    return 'No saved port outputs. Run the full graph once (▶ Run).'
+    return 'No saved port outputs. Run the full graph once (Run button).'
   }
   if (Object.keys(cachedStamps).length === 0) {
-    return 'Output cache is from an older version. Run the full graph once (▶ Run).'
+    return 'Output cache is from an older version. Run the full graph once (Run button).'
   }
   if (!nodes.has(fromId)) {
     return 'Selected node is not in the graph.'
@@ -89,7 +89,7 @@ export function whyPartialRunInvalid(
     const want = nodeContentStamp(sourceNode)
     const got = cachedStamps[e.sourceNodeId]
     if (got == null) {
-      return 'Stale cache. Run the full graph once (▶ Run).'
+      return 'Stale cache. Run the full graph once (Run button).'
     }
     if (got !== want) {
       return `A node that feeds this run was edited (upstream of “from here”). Run the full graph once, or only change this node and nodes below it, then use From here.`

@@ -3,14 +3,14 @@ import type { AppGraphState } from './defaultAppGraph'
 /**
  * Spam triage pipeline graph (Stage A rules + Stage B LLM judge).
  *
- * Layout (left → right):
+ * Layout (left to right):
  *
- *  [SpamItemSource] ──body──▶ [Tee] ──body A──▶ [AppJoin (body+rules)] ──▶ [AppJoin (all+feats)] ──▶ [LLM judge] ──▶ [Output]
- *        │                      │body B
- *        │feats                 ▼
- *        │               [SpamRules] ──scores──▶ ↑ (join a=body, b=rules)
- *        │feats JSON
- *        └──────────────────────────────────────────▶ ↑ (join a=body+rules, b=features)
+ *  [SpamItemSource] --body--> [Tee] --body A--> [AppJoin (body+rules)] --> [AppJoin (all+feats)] --> [LLM judge] --> [Output]
+ *        |                      |body B
+ *        |feats                 v
+ *        |               [SpamRules] --scores--> ^ (join a=body, b=rules)
+ *        |feats JSON
+ *        +------------------------------------------> ^ (join a=body+rules, b=features)
  */
 
 const JUDGE_SYSTEM = [

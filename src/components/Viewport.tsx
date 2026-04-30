@@ -142,7 +142,7 @@ export function Viewport() {
   return (
     <div
       className="viewport"
-      id="graph-canvas"
+      id="graph-viewport"
       tabIndex={-1}
       role="application"
       aria-label="Prompt graph. Pan by dragging the background, Shift-drag to select. Use arrow keys to nudge when nodes are selected."

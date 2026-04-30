@@ -32,14 +32,14 @@ export function formatRunSummary(
     const w = o0.width
     const h = o0.height
     const summary = path
-      ? `Saved: ${path}${w != null && h != null ? ` (${w}×${h})` : ''}`
+      ? `Saved: ${path}${w != null && h != null ? ` (${w} x ${h})` : ''}`
       : String(JSON.stringify(o0))
     return { summary, sourceNodeId: node.id, sourceNodeType: node.type }
   }
 
   if (o0.type === 'IMAGE') {
     return {
-      summary: `Image ${o0.width ?? '?'}×${o0.height ?? '?'}`,
+      summary: `Image ${o0.width ?? '?'} x ${o0.height ?? '?'}`,
       sourceNodeId: node.id,
       sourceNodeType: node.type,
     }

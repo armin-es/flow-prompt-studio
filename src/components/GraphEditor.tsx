@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createAppNode, type CreatableAppNodeType } from '../lib/createAppNode'
 import { positionNewNodeInCanvasCenter } from '../lib/nodePlacement'
 import { useGraphStore } from '../store/graphStore'
@@ -8,17 +8,27 @@ import { useExecutionStore } from '../store/executionStore'
 import { runGraph, runGraphFromNode } from '../engine/runGraph'
 import { Viewport } from './Viewport'
 import { Toolbar } from './Toolbar'
+import { menuShortcutHint } from '../lib/menuShortcutHint'
 import { RightPanels } from './RightPanels'
 import { PersistenceManager } from './PersistenceManager'
 import { SAMPLE_COMFY_WORKFLOW } from '../data/sampleComfyWorkflow'
 import { DEFAULT_APP_GRAPH } from '../data/defaultAppGraph'
 import type { ComfyWorkflow } from '../types'
 import { copySelection, getClipboard, buildPasteFromBuffer } from '../lib/clipboard'
-import { captureGraph } from '../lib/serializeGraph'
+import { applyGraph, captureGraph } from '../lib/serializeGraph'
 import { resetHistoryToCurrent } from '../lib/graphHistory'
+import { loadFullServerGraph } from '../lib/serverApi'
+import { useDialog } from '../lib/dialog'
+import {
+  useWorkflowDocStore,
+  workflowIsDirty,
+} from '../store/workflowDocStore'
+import { EditorTopBar, type EditorTopBarHandle } from './EditorTopBar'
+import { WorkflowSidebar } from './WorkflowSidebar'
 
 export function GraphEditor() {
   const mainRef = useRef<HTMLDivElement>(null)
+  const topBarRef = useRef<EditorTopBarHandle>(null)
   const nodeCount = useGraphStore((s) => s.nodes.size)
   const loadWorkflow = useGraphStore((s) => s.loadWorkflow)
   const graphContentRevision = useGraphStore((s) => s.graphContentRevision)
@@ -28,6 +38,27 @@ export function GraphEditor() {
   const isRunning = useExecutionStore((s) => s.isRunning)
   const requestCancel = useExecutionStore((s) => s.requestCancel)
   const clearSelection = useGraphStore((s) => s.clearSelection)
+
+  const serverGraphId = useWorkflowDocStore((s) => s.serverGraphId)
+  const displayName = useWorkflowDocStore((s) => s.displayName)
+  const savedName = useWorkflowDocStore((s) => s.savedName)
+  const lastAlignedRevision = useWorkflowDocStore((s) => s.lastAlignedRevision)
+  const setLastAlignedRevision = useWorkflowDocStore((s) => s.setLastAlignedRevision)
+  const openLocalGraph = useWorkflowDocStore((s) => s.openLocalGraph)
+  const openServerGraph = useWorkflowDocStore((s) => s.openServerGraph)
+
+  const [sidebarRefresh, setSidebarRefresh] = useState(0)
+  const docDirty = workflowIsDirty(graphContentRevision, lastAlignedRevision, displayName, savedName)
+  const dialog = useDialog()
+
+  useLayoutEffect(() => {
+    const r = useGraphStore.getState().graphContentRevision
+    setLastAlignedRevision(r)
+  }, [setLastAlignedRevision])
+
+  const bumpSidebar = useCallback(() => {
+    setSidebarRefresh((n) => n + 1)
+  }, [])
 
   const onAddAppNode = useCallback((type: CreatableAppNodeType) => {
     const draft = createAppNode(type, { x: 0, y: 0 })
@@ -73,9 +104,43 @@ export function GraphEditor() {
     fitToView()
   }, [graphContentRevision, fitToView])
 
-  function onLoadWorkflow(workflow: ComfyWorkflow) {
+  const onLoadWorkflow = useCallback((workflow: ComfyWorkflow) => {
     loadWorkflow(workflow)
-  }
+  }, [loadWorkflow])
+
+  const exportGraph = useCallback(() => {
+    const snap = captureGraph()
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(
+      new Blob([JSON.stringify(snap, null, 2)], { type: 'application/json' }),
+    )
+    a.download = 'flow-prompt-graph.json'
+    a.click()
+    URL.revokeObjectURL(a.href)
+  }, [])
+
+  const newWorkflow = useCallback(() => {
+    useGraphStore.getState().loadAppGraph(DEFAULT_APP_GRAPH)
+    resetHistoryToCurrent()
+    const r = useGraphStore.getState().graphContentRevision
+    openLocalGraph('Untitled workflow', r)
+  }, [openLocalGraph])
+
+  const openWorkflowFromServer = useCallback(
+    (id: string) => {
+      void loadFullServerGraph(id)
+        .then((row) => {
+          applyGraph(row.data)
+          resetHistoryToCurrent()
+          const r = useGraphStore.getState().graphContentRevision
+          openServerGraph(row.id, row.name, r)
+        })
+        .catch(async (e) => {
+          await dialog.alert(e instanceof Error ? e.message : 'Load failed', 'Load failed')
+        })
+    },
+    [dialog, openServerGraph],
+  )
 
   useEffect(() => {
     function nudgeSelected(dx: number, dy: number) {
@@ -94,6 +159,12 @@ export function GraphEditor() {
       }
 
       const mod = e.metaKey || e.ctrlKey
+
+      if (mod && e.key === 's') {
+        e.preventDefault()
+        void topBarRef.current?.save()
+        return
+      }
 
       if (mod && e.key === 'z' && e.shiftKey) {
         e.preventDefault()
@@ -191,67 +262,85 @@ export function GraphEditor() {
 
   return (
     <div className="graph-editor">
-      <a className="skip-link" href="#graph-canvas">
-        Skip to graph
-      </a>
       <PersistenceManager />
-      <main className="graph-editor-main" id="graph-main" ref={mainRef} aria-label="Graph editor">
-        {nodeCount === 0 && (
-          <div className="graph-editor-empty" role="status">
-            <p className="graph-editor-empty-title">No workflow loaded</p>
-            <p className="graph-editor-empty-hint">
-              Load a preset, or use <strong>Add</strong> in the top bar to place app nodes, then
-              drag from an output to an input to connect. Start the dev server for the API
-              (or it falls back to echo without OPENAI_API_KEY).
-            </p>
-            <div className="graph-editor-empty-actions">
-              <button
-                type="button"
-                className="btn graph-editor-empty-cta"
-                onClick={() => {
-                  useGraphStore.getState().loadAppGraph(DEFAULT_APP_GRAPH)
-                  resetHistoryToCurrent()
-                }}
-              >
-                App pipeline
-              </button>
-              <button
-                type="button"
-                className="btn graph-editor-empty-cta"
-                onClick={() => {
-                  loadWorkflow(SAMPLE_COMFY_WORKFLOW)
-                  resetHistoryToCurrent()
-                }}
-              >
-                Comfy sample
-              </button>
-            </div>
-          </div>
-        )}
-        <Viewport />
-        <Toolbar
+      <WorkflowSidebar
+        selectedId={serverGraphId}
+        isDirty={docDirty}
+        graphContentRevision={graphContentRevision}
+        lastAlignedRevision={lastAlignedRevision}
+        displayName={displayName}
+        savedName={savedName}
+        refreshToken={sidebarRefresh}
+        onPick={openWorkflowFromServer}
+        onNew={newWorkflow}
+        onDeletedCurrent={newWorkflow}
+      />
+      <div className="graph-editor-main-column">
+        <EditorTopBar
+          ref={topBarRef}
           onLoadWorkflow={onLoadWorkflow}
-          onFitView={fitToView}
-          onRun={runGraph}
-          onRunFrom={() => {
-            const s = useGraphStore.getState().selection
-            if (s.size !== 1) return
-            const id = [...s][0]!
-            void runGraphFromNode(id)
-          }}
-          onExportGraph={() => {
-            const snap = captureGraph()
-            const a = document.createElement('a')
-            a.href = URL.createObjectURL(
-              new Blob([JSON.stringify(snap, null, 2)], { type: 'application/json' }),
-            )
-            a.download = 'flow-prompt-graph.json'
-            a.click()
-            URL.revokeObjectURL(a.href)
-          }}
-          onAddAppNode={onAddAppNode}
+          onExportGraph={exportGraph}
+          onNewWorkflow={newWorkflow}
+          onRefreshSidebar={bumpSidebar}
         />
-      </main>
+        <main
+          className="graph-editor-canvas"
+          id="graph-main"
+          ref={mainRef}
+          aria-label="Graph editor"
+        >
+          {nodeCount === 0 && (
+            <div className="graph-editor-empty" role="status">
+              <p className="graph-editor-empty-title">No workflow loaded</p>
+              <p className="graph-editor-empty-hint">
+                Open <strong>Menu</strong> (top left) or press{' '}
+                <strong>{menuShortcutHint()}</strong> for templates (RAG, spam, agent, and more). Use{' '}
+                <strong>Add node</strong> below to place blocks on the canvas, then drag from an
+                output to an input. The
+                dev server supplies the API (or echo without <code>OPENAI_API_KEY</code>).
+              </p>
+              <div className="graph-editor-empty-actions">
+                <button
+                  type="button"
+                  className="btn graph-editor-empty-cta"
+                  onClick={() => {
+                    useGraphStore.getState().loadAppGraph(DEFAULT_APP_GRAPH)
+                    resetHistoryToCurrent()
+                    const r = useGraphStore.getState().graphContentRevision
+                    openLocalGraph('Untitled workflow', r)
+                  }}
+                >
+                  App pipeline
+                </button>
+                <button
+                  type="button"
+                  className="btn graph-editor-empty-cta"
+                  onClick={() => {
+                    loadWorkflow(SAMPLE_COMFY_WORKFLOW)
+                    resetHistoryToCurrent()
+                    const r = useGraphStore.getState().graphContentRevision
+                    openLocalGraph('Comfy sample', r)
+                  }}
+                >
+                  Comfy sample
+                </button>
+              </div>
+            </div>
+          )}
+          <Viewport />
+          <Toolbar
+            onFitView={fitToView}
+            onRun={runGraph}
+            onRunFrom={() => {
+              const s = useGraphStore.getState().selection
+              if (s.size !== 1) return
+              const id = [...s][0]!
+              void runGraphFromNode(id)
+            }}
+            onAddAppNode={onAddAppNode}
+          />
+        </main>
+      </div>
       <RightPanels />
     </div>
   )

@@ -137,6 +137,52 @@ type RetrieveRow = {
   score: number
 }
 
+export type ServerGraphListItem = {
+  id: string
+  name: string
+  isPublic: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+/** Lists graphs for the signed-in / dev user. `null` if request failed. */
+export async function listServerGraphs(): Promise<ServerGraphListItem[] | null> {
+  const res = await apiFetch(apiPath('/api/graphs'), {
+    headers: publicHeaders(false),
+  })
+  if (!res.ok) {
+    return null
+  }
+  const j = (await res.json()) as { graphs?: ServerGraphListItem[] }
+  return j.graphs ?? []
+}
+
+export async function patchGraphOnServer(
+  id: string,
+  body: { name?: string; data?: SerializedGraph },
+): Promise<void> {
+  const res = await apiFetch(apiPath(`/api/graphs/${encodeURIComponent(id)}`), {
+    method: 'PATCH',
+    headers: publicHeaders(true),
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) {
+    const t = await res.text()
+    throw new Error(t || `PATCH /api/graphs ${res.status}`)
+  }
+}
+
+export async function deleteServerGraph(id: string): Promise<void> {
+  const res = await apiFetch(apiPath(`/api/graphs/${encodeURIComponent(id)}`), {
+    method: 'DELETE',
+    headers: publicHeaders(false),
+  })
+  if (!res.ok && res.status !== 404) {
+    const t = await res.text()
+    throw new Error(t || `DELETE /api/graphs ${res.status}`)
+  }
+}
+
 /** Saves a Flow v1 graph snapshot to the API (see `POST /api/graphs`). Returns the graph UUID. */
 export async function saveGraphToServer(
   data: SerializedGraph,
@@ -158,6 +204,13 @@ export async function saveGraphToServer(
 }
 
 export async function loadGraphFromServer(id: string): Promise<SerializedGraph> {
+  const full = await loadFullServerGraph(id)
+  return full.data
+}
+
+export async function loadFullServerGraph(
+  id: string,
+): Promise<{ data: SerializedGraph; name: string; id: string }> {
   const res = await apiFetch(apiPath(`/api/graphs/${encodeURIComponent(id)}`), {
     headers: publicHeaders(false),
   })
@@ -165,8 +218,14 @@ export async function loadGraphFromServer(id: string): Promise<SerializedGraph> 
     const t = await res.text()
     throw new Error(t || `GET /api/graphs ${res.status}`)
   }
-  const j = (await res.json()) as { graph: { data: SerializedGraph } }
-  return j.graph.data
+  const j = (await res.json()) as {
+    graph: { id: string; name: string; data: SerializedGraph }
+  }
+  return {
+    id: j.graph.id,
+    name: j.graph.name,
+    data: j.graph.data,
+  }
 }
 
 /**

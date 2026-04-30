@@ -1,5 +1,9 @@
 import { useGraphStore } from '../store/graphStore'
-import { toGraphSpace, toScreenSpace } from '../lib/viewportMath'
+import {
+  getGraphViewportClientOrigin,
+  toGraphSpace,
+  toScreenSpace,
+} from '../lib/viewportMath'
 import type { Point } from '../types'
 
 /**
@@ -34,12 +38,15 @@ export function useViewport() {
    */
   function zoomAt(screenX: number, screenY: number, delta: number) {
     const { viewport, setViewport } = useGraphStore.getState()
+    const o = getGraphViewportClientOrigin()
+    const lx = screenX - o.x
+    const ly = screenY - o.y
     const factor = delta > 0 ? 1.1 : 0.9
     const newScale = Math.min(4, Math.max(0.1, viewport.scale * factor))
     const newTranslateX =
-      screenX - (screenX - viewport.translateX) * (newScale / viewport.scale)
+      lx - (lx - viewport.translateX) * (newScale / viewport.scale)
     const newTranslateY =
-      screenY - (screenY - viewport.translateY) * (newScale / viewport.scale)
+      ly - (ly - viewport.translateY) * (newScale / viewport.scale)
     setViewport({ scale: newScale, translateX: newTranslateX, translateY: newTranslateY })
   }
 

@@ -260,7 +260,7 @@ function defaultWidth(t: CreatableAppNodeType): number {
 function defaultHeight(t: CreatableAppNodeType): number {
   switch (t) {
     case 'AppLlm':
-      return 200
+      return 148
     case 'AppInput':
       return 160
     case 'AppOutput':

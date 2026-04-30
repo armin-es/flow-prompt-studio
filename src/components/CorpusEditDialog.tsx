@@ -1,4 +1,5 @@
 import { useId, useRef, useState } from 'react'
+import { useDialog } from '../lib/dialog'
 import { useCorpusStore, CORPUS_DEFAULT_ID } from '../store/corpusStore'
 import type { CorpusEntry } from '../store/corpusTypes'
 import {
@@ -23,10 +24,11 @@ function CorpusEditForm({ entry, onSave, onDelete, onClose, listCount }: FormPro
   const [dragOver, setDragOver] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const dropId = useId()
+  const dialog = useDialog()
 
-  function onSaveClick() {
+  async function onSaveClick() {
     if (body.length > 65_536) {
-      window.alert('Corpus is too large (max 64 KB).')
+      await dialog.alert('Corpus is too large (max 64 KB).', 'Too large')
       return
     }
     onSave(name.trim() || 'Untitled', body)
@@ -164,7 +166,7 @@ function CorpusEditForm({ entry, onSave, onDelete, onClose, listCount }: FormPro
         <button type="button" className="corpus-dialog-btn" onClick={onClose}>
           Cancel
         </button>
-        <button type="button" className="corpus-dialog-btn primary" onClick={onSaveClick}>
+        <button type="button" className="corpus-dialog-btn primary" onClick={() => void onSaveClick()}>
           Save
         </button>
       </div>
@@ -183,6 +185,7 @@ export function CorpusEditDialog({ open, corpusId, onClose }: Props) {
   const upsert = useCorpusStore((s) => s.upsert)
   const remove = useCorpusStore((s) => s.remove)
   const list = useCorpusStore((s) => s.list)
+  const dialog = useDialog()
 
   if (!open || entry == null) {
     return null
@@ -209,19 +212,17 @@ export function CorpusEditDialog({ open, corpusId, onClose }: Props) {
           upsert(corpusId, name, body)
           onClose()
         }}
-        onDelete={() => {
-          if (corpusId === CORPUS_DEFAULT_ID) {
-            return
-          }
-          if (list().length <= 1) {
-            return
-          }
-          if (!window.confirm('Delete this corpus? Retrieve nodes that used it will switch to Default.')) {
-            return
-          }
+        onDelete={() => void (async () => {
+          if (corpusId === CORPUS_DEFAULT_ID) return
+          if (list().length <= 1) return
+          const ok = await dialog.confirm(
+            'Delete this corpus? Retrieve nodes that reference it will fall back to Default.',
+            'Delete corpus',
+          )
+          if (!ok) return
           remove(corpusId)
           onClose()
-        }}
+        })()}
       />
     </div>
   )

@@ -1,16 +1,16 @@
-import { toGraphSpace } from './viewportMath'
+import { GRAPH_VIEWPORT_ELEMENT_ID, toGraphSpace } from './viewportMath'
 import { useGraphStore } from '../store/graphStore'
 
 /**
  * Top-left of a new node so it appears near the **center of the graph canvas** in graph space
- * (uses `#graph-canvas` bounding box + current viewport).
+ * (uses `#graph-viewport` bounding box + current viewport).
  */
 export function positionNewNodeInCanvasCenter(
   nodeWidth: number,
   nodeHeight: number,
 ): { x: number; y: number } {
   const vp = useGraphStore.getState().viewport
-  const el = document.getElementById('graph-canvas')
+  const el = document.getElementById(GRAPH_VIEWPORT_ELEMENT_ID)
   const r = el?.getBoundingClientRect()
   const w = r?.width ?? 800
   const h = r?.height ?? 600
