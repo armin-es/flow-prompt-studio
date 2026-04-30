@@ -1,6 +1,8 @@
 # 13 — Server-side graph executor (re-architecture roadmap)
 
-> **Goal.** Make the visual editor the literal execution definition for server pipelines, not just a parallel mock-up. Today Stage B is implemented as `runSpamStageB` in TypeScript; it **reads** the judge system prompt from the saved `spam-default` graph but does **not** interpret the full graph (topo order, every node). This doc describes the target architecture and layers.
+> **Status (2026-04).** `runSavedGraph` and spam Stage B integration are **implemented** (see `server/engine/runSavedGraph.ts`, `runSpamStageB`). Supported server node types are a **subset** of the studio; cosine retrieval for Stage B is still composed in `runSpamStageB` and appended in the `AppLlm` executor when `stageBLlmAugment` is set — full “retrieval as graph nodes only” remains future work.
+
+> **Goal.** Make the visual editor the literal execution definition for server pipelines, not just a parallel mock-up. This doc describes layering and extension boundaries beyond the first milestone.
 
 ---
 
@@ -9,8 +11,8 @@
 **Today**
 
 - **Browser:** `runGraph.ts` topologically executes nodes via `getExecutor()` in `src/engine/executors.ts`. Outputs flow edge-by-edge; partial runs reuse cached upstream outputs.
-- **Server:** `runSpamStageB` duplicates the *idea* of the pipeline (retrieve → LLM → combine) in one function. The saved graph mainly supplies the **LLM system string** (`spam-llm.widgetValues[0]`) and an audit `graph_id`.
-- **Gap:** Changing topology (add a join, swap retrieval) still requires a code change on the server. The story “the graph *is* the pipeline” is only partly true.
+- **Server:** `runSpamStageB` calls **`runSavedGraph`** on the stored **`spam-default`** JSON: topo order, `AppSpamItemSource` / `AppTee` / `AppSpamRules` / `AppJoin` / `AppLlm` (`server/engine/serverExecutors.ts`). Cosine retrieval for examples + policy is still applied **outside** the graph and passed as **`stageBLlmAugment`** on the LLM step so cited-snippet semantics stay stable.
+- **Gap:** Other studio node types (`AppRetrieve`, `AppAgent`, …) are not server-routed yet; retrieval is not exclusively graph-driven.
 
 **Target**
 
@@ -33,9 +35,9 @@
 └────────────────────┬────────────────────┘
                      │
 ┌────────────────────▼────────────────────┐
-│  server/engine/executors.ts             │
+│  server/engine/serverExecutors.ts       │
 │  AppLlm → OpenAI direct                 │
-│  AppSpamRules → DB/rules engine         │
+│  AppSpamRules → evaluate + DB rules     │
 │  AppJoin / AppTee / … → pure TS         │
 └────────────────────┬────────────────────┘
                      │
@@ -52,14 +54,15 @@
 
 ## 3. Executor parity matrix
 
-| Node type | Browser | Server (target) |
+| Node type | Browser | Server (v1) |
 | --- | --- | --- |
-| `AppInput` | widget text | same |
-| `AppLlm` | `POST /api/complete` | `openai.chat.completions.create` |
-| `AppJoin`, `AppTee`, `AppPick` | pure | same code paths (extract to `shared/`) |
+| `AppInput` | widget text | **yes** |
+| `AppOutput` | passthrough | **yes** |
+| `AppLlm` | `POST /api/complete` | **yes** (`openai.chat.completions.create`) |
+| `AppJoin`, `AppTee`, `AppPick` | pure | `AppJoin` / `AppTee` **yes**; `AppPick` not yet |
 | `AppRetrieve` | IndexedDB + optional `/api/retrieve` | `/api/retrieve` or direct pool + embed |
-| `AppSpamRules` | `POST /api/spam/evaluate` | import `evaluateSpamRules` + DB rules |
-| `AppSpamItemSource` | `GET /api/spam/items/:id` | direct Drizzle read |
+| `AppSpamRules` | `POST /api/spam/evaluate` | **yes** — `evaluateSpamRules` in-process |
+| `AppSpamItemSource` | `GET /api/spam/items/:id` | **yes** — Drizzle read |
 | `AppAgent` | tools + complete | defer or subset |
 
 Nodes that **cannot** run on server without new deps should **fail fast** with a clear error if present in a server-routed graph.
@@ -97,10 +100,13 @@ This matches the portfolio story: *at work, a dedicated spam pipeline editor; pe
 
 | Location | Role |
 | --- | --- |
-| `server/spam/spamStageB.ts` | Stage B orchestration, reads judge prompt from graph, retrieval, OpenAI, combine, `finishSpamStageB` |
+| `server/spam/spamStageB.ts` | Stage B: retrieval + **`runSavedGraph`** + `combineSpamStageB` + `finishSpamStageB` |
 | `server/spam/spamApi.ts` | `GET/PATCH /api/spam/pipeline`, ingest, decisions, demo seed |
 | `src/engine/runGraph.ts` | Client topo runner |
 | `src/engine/executors.ts` | Client executor registry |
-| `docs/ARCHITECTURE.md` | Current system narrative |
+| `server/engine/runSavedGraph.ts` | Server topo runner |
+| `server/engine/serverExecutors.ts` | Server executor registry |
 
 When `runSavedGraph` lands, update ARCHITECTURE.md §4 to say Stage B **executes** the stored graph rather than **mirrors** it.
+
+**Done:** §4 and §12 in `ARCHITECTURE.md` describe Stage B as executing the stored graph via `runSavedGraph`; this bullet kept for doc history.

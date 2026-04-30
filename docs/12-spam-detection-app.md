@@ -31,7 +31,7 @@ The rest of this document assumes **extend**.
 
 - Tables: `spam_categories`, `spam_items`, `spam_decisions`, `spam_rules`; reuse `graphs`, `runs`, `corpora`, `chunks`.
 - **Stage A:** `evaluateSpamRules` + thresholds; ingest runs scoring in-process; items may land `allowed`, `queued`, or `quarantined`.
-- **Stage B:** `runSpamStageB` — seed corpora, cosine retrieval for examples + policy, OpenAI judge (`json_object`), `combineSpamStageB`, writes `runs` + system `spam_decisions`, updates item (`run_id`, `llm_score`, `final_action`, stays in triage until human decides). Judge **system prompt** is read from saved graph node `spam-llm` (`widgetValues[0]`) in `graphs.name = 'spam-default'`.
+- **Stage B:** `runSpamStageB` — seed corpora, cosine retrieval for examples + policy, then **`runSavedGraph`** walks the saved **`spam-default`** topology (server executors for `AppSpamItemSource`, `AppTee`, `AppSpamRules`, `AppJoin`, `AppLlm`). Retrieval payload is **appended** to the LLM user message (same judge JSON shape as before). `combineSpamStageB`, writes `runs` + system `spam_decisions`, updates item (`run_id`, `llm_score`, `final_action`, …). The judge **system** string comes from `spam-llm.widgetValues[0]` in the graph row.
 - **API:** `POST/GET` items, `GET` item detail (includes `stageB` from `runs.summary`), `POST` decision, `POST` score, `POST` demo seed, `GET/PATCH /api/spam/pipeline` (load/update `spam-default` graph JSON), rules CRUD, evaluate, webhook.
 - **UI:** `/spam` inbox (demo seed, polling while Stage B pending, `?all=1` for all statuses), detail with **Edit pipeline in studio** → `/?spamPipeline=<itemId>`.
 - **Studio:** Spam pipeline template; Toolbar **Publish spam policy** (`PATCH /api/spam/pipeline`); graph nodes `AppSpamItemSource`, `AppSpamRules` (client Run is test-only — does not write item verdicts).
@@ -39,8 +39,8 @@ The rest of this document assumes **extend**.
 
 **Not yet built (see §5 wishlist nodes, §4 API gaps)**
 
-- `POST items:bulk`, categories/metrics routes, dedicated `SpamRetrieve*` / `SpamJudge` / `SpamCombine` / `SpamVerdict` nodes as in the table below (Stage B uses server TS instead).
-- **Generic server-side graph interpreter** — roadmap: [`13-server-graph-executor-roadmap.md`](13-server-graph-executor-roadmap.md).
+- `POST items:bulk`, categories/metrics routes, dedicated `SpamRetrieve*` / `SpamJudge` / `SpamCombine` / `SpamVerdict` nodes as in the table below (partially superseded: Stage B uses `runSavedGraph` + LLM augment; persist-from-studio verdict sink still unbuilt).
+- **Full studio parity on the server** — e.g. `AppRetrieve`, `AppAgent`; optional all-retrieval-in-graph (no `stageBLlmAugment`). See [`13-server-graph-executor-roadmap.md`](13-server-graph-executor-roadmap.md).
 
 ---
 
@@ -83,7 +83,7 @@ external post → │  /api/spam/items  (ingest)                 │
                 changes the LLM behavior next pass
 ```
 
-**Policy graph.** The `spam-default` **saved graph** is the **versioned policy artifact**: the Stage B **LLM system prompt** is taken from the `spam-llm` node so editors can change behavior without a code deploy. The **full topology** of that graph is executed in the **browser** for testing (`Run`); **production Stage B** today follows the server module `runSpamStageB` (retrieve + judge + combine), which is **aligned with** that graph’s intent but not a literal server-side interpretation of every edge — see [`13-server-graph-executor-roadmap.md`](13-server-graph-executor-roadmap.md).
+**Policy graph.** The `spam-default` **saved graph** is the **versioned policy artifact**: topology and the `spam-llm` **system** string are stored in `graphs`. **Production Stage B** executes that JSON via **`runSavedGraph`** (same node kinds as the studio template); **browser `Run`** uses the client runner (`runGraph.ts`) for interactive testing and does not write `spam_items`. Cosine retrieval is still composed in `runSpamStageB` and merged into the server LLM call — see [`13-server-graph-executor-roadmap.md`](13-server-graph-executor-roadmap.md) for pushing retrieval into nodes only.
 
 Per–ingest-source graph selection ("blogs" vs. "comments") remains future work.
 

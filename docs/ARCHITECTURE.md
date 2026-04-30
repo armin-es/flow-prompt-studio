@@ -100,32 +100,30 @@ POST /api/spam/items
         │ queued / quarantined?
         ▼  async (setImmediate, ~300 ms–2 s)
   ┌─────────────────────────────────────┐
-  │  Stage B — graph-driven judge       │
-  │  1. Load spam-default graph from DB │
-  │  2. Extract spam-llm.widgetValues[0]│  ← system prompt lives in the graph
-  │     as system prompt                │
-  │  3. Cosine retrieve top-4 from      │
-  │     spam-examples corpus            │
-  │  4. Cosine retrieve top-4 from      │
-  │     spam-policy corpus              │
-  │  5. POST to OpenAI (gpt-4o-mini,    │
-  │     json_object mode)               │
-  │  6. Parse & validate with Zod       │
-  │  7. combineSpamStageB(ruleScore,    │
+  │  Stage B — runSpamStageB          │
+  │  1. Load spam-default graph JSON   │
+  │  2. runSavedGraph — topo execute   │
+  │     AppSpamItemSource → tee → rules│
+  │     → joins → AppLlm (system from   │
+  │     spam-llm widget)              │
+  │  3. Before LLM: cosine top-4 from   │
+  │     examples + policy corpora      │
+  │     (appended to user message)     │
+  │  4. OpenAI json_object (in-process) │
+  │  5. Parse & validate judge (Zod)    │
+  │  6. combineSpamStageB(ruleScore,    │
   │     judge) → finalAction            │
-  │  8. Persist: runs row, spam_decision│
-  │     row (reviewerId=null), update   │
-  │     spam_items (runId, llmScore,    │
-  │     finalAction, status)            │
+  │  7. Persist: runs, spam_decisions,  │
+  │     spam_items update               │
   └─────────────────────────────────────┘
         │
         ▼  status: queued / quarantined (suggested action stored)
   Reviewer inbox → confirms or overrides → spam_decisions row (reviewerId≠null)
 ```
 
-### 4c. Why the graph is the source of truth for Stage B's prompt
+### 4c. Why the graph is the source of truth for Stage B
 
-`runSpamStageB` reads `spam-llm.widgetValues[0]` from the saved `spam-default` graph row. This means:
+Stage B executes the saved **`spam-default`** graph on the server (`runSavedGraph`): the same topology and node widgets the editor uses for **Run**, with server-side executors (`server/engine/serverExecutors.ts`). The judge **system** string still comes from `spam-llm.widgetValues[0]`. This means:
 
 - The system prompt is **versioned** — it lives in a graph row with `updated_at`, the same as any other graph.
 - Prompt changes **deploy without a code push** — edit in the studio, `PATCH /api/spam/pipeline`, done.
@@ -161,7 +159,7 @@ PATCH /api/spam/pipeline  (sends current canvas JSON)
     → updates spam-default graph in DB
     │
     ▼
-Next ingest: runSpamStageB reads new prompt  ✓
+Next ingest: `runSavedGraph` inside `runSpamStageB` uses the updated graph ✓
 ```
 
 ### 4e. Rules engine (Stage A)
@@ -369,9 +367,11 @@ A learned combiner would be more accurate but requires labelled training data (w
 
 ## 12. Roadmap: generic server-side graph execution
 
-Today, **Stage B** is still a dedicated TypeScript pipeline (`runSpamStageB`) that **reads** the judge system prompt from the saved `spam-default` graph but does **not** walk the graph node-by-node on the server. The **client** graph runner (`runGraph.ts`) is the only place full topo execution happens — interactive testing only; it **does not** persist verdicts to `spam_items`.
+**Current (v1):** `runSavedGraph` (`server/engine/runSavedGraph.ts`) executes stored JSON with server executors for `AppInput`, `AppOutput`, `AppTee`, `AppJoin`, `AppSpamItemSource`, `AppSpamRules`, and `AppLlm`. **Spam Stage B** uses it for the LLM path: topology matches the saved `spam-default` graph; cosine retrieval is still applied in `runSpamStageB` and **appended** to the LLM user message so the judge JSON schema and `citedExample` / `citedPolicy` behavior stay aligned with the pre-existing pipeline.
 
-**Target:** `runSavedGraph` on the API server shares the same topo + executor pattern as the browser, with server-side implementations for `AppLlm`, `AppSpamRules`, etc. Then any stored graph can drive production ingest without duplicating logic. See **[13-server-graph-executor-roadmap.md](13-server-graph-executor-roadmap.md)** for layering, executor parity, and migration steps.
+The **client** runner (`runGraph.ts`) remains for interactive testing; it **does not** persist verdicts to `spam_items`.
+
+**Next:** Broaden server executor coverage (e.g. `AppRetrieve`, `AppAgent`), share more code with the client via a `shared/` package, and optionally express retrieval entirely as graph nodes so production is one literal graph walk without app-layer augmentation. See **[13-server-graph-executor-roadmap.md](13-server-graph-executor-roadmap.md)**.
 
 **Portfolio framing:** A specialized spam pipeline editor at work → a personal project generalizes the **graph engine + persistence** so spam (and other verticals) become **extensions** on a composable LLM editor.
 

@@ -1,4 +1,4 @@
-import type { GraphEdge, GraphNode, NodeId } from '../types'
+import type { GraphEdge, GraphNode, NodeId } from '../types/index.js'
 
 /**
  * Kahn's algorithm — BFS-based topological sort.

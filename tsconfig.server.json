@@ -9,5 +9,10 @@
     "strict": true,
     "types": ["node"]
   },
-  "include": ["server/**/*.ts", "src/engine/retrieve/chunk.ts"]
+  "include": [
+    "server/**/*.ts",
+    "src/engine/retrieve/chunk.ts",
+    "src/engine/topologicalSort.ts",
+    "src/types/index.ts"
+  ]
 }

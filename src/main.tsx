@@ -18,6 +18,7 @@ import { resetHistoryToCurrent } from './lib/graphHistory'
 import { loadGraphFromServer, apiPath } from './lib/serverApi'
 import { apiFetch } from './lib/apiFetch'
 import { SPAM_DEMO_GRAPH } from './data/spamDemoGraph'
+import type { GraphNode } from './types'
 import App from './App'
 
 async function bootstrap() {
@@ -57,12 +58,12 @@ async function bootstrap() {
           try { localStorage.setItem('flow-prompt-spam-pipeline-id', pj.graphId) } catch { /* ignore */ }
           const g = await loadGraphFromServer(pj.graphId)
           // Pre-fill SpamItemSource widget with the item UUID
-          const nodes = g.nodes.map(([id, node]) => {
+          const nodes = g.nodes.map(([id, node]): [string, GraphNode] => {
             if (id === 'spam-src') {
-              const n = node as Record<string, unknown>
-              return [id, { ...n, widgetValues: [itemId] }] as [string, unknown]
+              const n = node as GraphNode
+              return [id, { ...n, widgetValues: [itemId] }]
             }
-            return [id, node] as [string, unknown]
+            return [id, node as GraphNode]
           })
           applyGraph({ ...g, nodes })
           resetHistoryToCurrent()
