@@ -5,12 +5,14 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 import { getDb } from '../db/client.js'
 import {
+  graphs,
   spamCategories,
   spamDecisions,
   spamItems,
   spamRules,
   runs,
   users,
+  type SerializedGraphJson,
 } from '../db/schema.js'
 import { ensureBaselineSpamRules } from './spamBaselineRules.js'
 import {
@@ -18,7 +20,12 @@ import {
   evaluateSpamRules,
   type SpamRuleRow,
 } from './spamRulesEngine.js'
-import { queueSpamStageB, runSpamStageB } from './spamStageB.js'
+import { SPAM_DEMO_FIXTURES } from './spamDemoSeed.js'
+import {
+  ensureSpamDefaultGraphForApi,
+  queueSpamStageB,
+  runSpamStageB,
+} from './spamStageB.js'
 
 const ingestBody = z.object({
   source: z.string().min(1).max(200),
@@ -195,8 +202,104 @@ async function scoreSpamItemById(
     .where(and(eq(spamItems.id, itemId), eq(spamItems.userId, uid)))
 }
 
+async function ingestSpamItemFromPayload(
+  db: NonNullable<ReturnType<typeof getDb>>,
+  uid: string,
+  d: z.infer<typeof ingestBody>,
+): Promise<{ id: string; status: string }> {
+  const categoryId = await resolveCategoryId(db, uid, d.categoryId)
+
+  const [row] = await db
+    .insert(spamItems)
+    .values({
+      userId: uid,
+      source: d.source,
+      body: d.body,
+      externalId: d.externalId ?? null,
+      authorFeatures: d.authorFeatures ?? {},
+      categoryId,
+      status: 'new',
+    })
+    .returning({ id: spamItems.id })
+
+  try {
+    await scoreSpamItemById(db, uid, row!.id)
+  } catch (e) {
+    console.error('[spam] scoreSpamItemById failed', e)
+  }
+
+  const [after] = await db
+    .select({ id: spamItems.id, status: spamItems.status })
+    .from(spamItems)
+    .where(eq(spamItems.id, row!.id))
+    .limit(1)
+
+  if (after!.status === 'queued' || after!.status === 'quarantined') {
+    queueSpamStageB(uid, after!.id)
+  }
+
+  return { id: after!.id, status: after!.status }
+}
+
 export function createSpamApp(): Hono {
   const r = new Hono()
+
+  /**
+   * Returns the UUID of the saved `spam-default` graph (creating it on first use).
+   * The client uses this to load the graph into the studio and to PATCH it back.
+   */
+  r.get('/pipeline', async (c) => {
+    const db = getDb()
+    if (db == null) return c.json(noDb(), 503)
+    const uid = userId(c)
+    await ensureUserCategoryAndRules(db, uid)
+    const found = await db
+      .select({ id: graphs.id })
+      .from(graphs)
+      .where(and(eq(graphs.userId, uid), eq(graphs.name, 'spam-default')))
+      .limit(1)
+    if (found.length > 0) {
+      return c.json({ graphId: found[0]!.id })
+    }
+    const graphId = await ensureSpamDefaultGraphForApi(db, uid)
+    return c.json({ graphId })
+  })
+
+  /**
+   * Overwrites the `spam-default` graph data (called "Publish spam policy" in the studio toolbar).
+   * Stage B on the *next* ingest will read the new LLM prompt from this graph.
+   */
+  r.patch('/pipeline', async (c) => {
+    const db = getDb()
+    if (db == null) return c.json(noDb(), 503)
+    const uid = userId(c)
+    let body: unknown
+    try { body = await c.req.json() } catch { return c.json({ error: 'Invalid JSON' }, 400) }
+    const parsed = z.object({
+      data: z.object({
+        version: z.literal(1),
+        nodes: z.array(z.tuple([z.string(), z.unknown()])),
+        edges: z.array(z.tuple([z.string(), z.unknown()])),
+        selection: z.array(z.string()),
+        edgeSelection: z.array(z.string()),
+      }),
+    }).safeParse(body)
+    if (!parsed.success) return c.json({ error: parsed.error.message }, 400)
+
+    const [existing] = await db
+      .select({ id: graphs.id })
+      .from(graphs)
+      .where(and(eq(graphs.userId, uid), eq(graphs.name, 'spam-default')))
+      .limit(1)
+
+    if (existing) {
+      await db.update(graphs).set({ data: parsed.data.data as SerializedGraphJson, updatedAt: new Date() }).where(eq(graphs.id, existing.id))
+      return c.json({ ok: true, graphId: existing.id })
+    }
+    // create if absent
+    const [row] = await db.insert(graphs).values({ userId: uid, name: 'spam-default', data: parsed.data.data as SerializedGraphJson, isPublic: false }).returning({ id: graphs.id })
+    return c.json({ ok: true, graphId: row!.id })
+  })
 
   r.post('/evaluate', async (c) => {
     const db = getDb()
@@ -351,39 +454,47 @@ export function createSpamApp(): Hono {
       return c.json({ error: parsed.error.flatten() }, 400)
     }
     const uid = userId(c)
-    const d = parsed.data
-    const categoryId = await resolveCategoryId(db, uid, d.categoryId)
+    const out = await ingestSpamItemFromPayload(db, uid, parsed.data)
+    return c.json(out)
+  })
 
-    const [row] = await db
-      .insert(spamItems)
-      .values({
-        userId: uid,
-        source: d.source,
-        body: d.body,
-        externalId: d.externalId ?? null,
-        authorFeatures: d.authorFeatures ?? {},
-        categoryId,
-        status: 'new',
+  /** Idempotent demo queue: inserts fixtures not already present (`user_id` + `external_id`). */
+  r.post('/demo/seed', async (c) => {
+    const db = getDb()
+    if (db == null) {
+      return c.json(noDb(), 503)
+    }
+    const uid = userId(c)
+    await ensureUserCategoryAndRules(db, uid)
+
+    const inserted: Array<{ externalId: string; id: string; status: string }> = []
+    const skipped: string[] = []
+
+    for (const raw of SPAM_DEMO_FIXTURES) {
+      const parsed = ingestBody.safeParse({
+        ...raw,
+        categoryId: raw.categoryId ?? null,
       })
-      .returning({ id: spamItems.id, status: spamItems.status })
-
-    try {
-      await scoreSpamItemById(db, uid, row!.id)
-    } catch (e) {
-      console.error('[spam] scoreSpamItemById failed', e)
+      if (!parsed.success) {
+        continue
+      }
+      const ext = parsed.data.externalId
+      if (ext) {
+        const [dup] = await db
+          .select({ id: spamItems.id })
+          .from(spamItems)
+          .where(and(eq(spamItems.userId, uid), eq(spamItems.externalId, ext)))
+          .limit(1)
+        if (dup) {
+          skipped.push(ext)
+          continue
+        }
+      }
+      const out = await ingestSpamItemFromPayload(db, uid, parsed.data)
+      inserted.push({ externalId: ext ?? out.id, id: out.id, status: out.status })
     }
 
-    const [after] = await db
-      .select({ id: spamItems.id, status: spamItems.status })
-      .from(spamItems)
-      .where(eq(spamItems.id, row!.id))
-      .limit(1)
-
-    if (after!.status === 'queued' || after!.status === 'quarantined') {
-      queueSpamStageB(uid, after!.id)
-    }
-
-    return c.json({ id: after!.id, status: after!.status })
+    return c.json({ ok: true, inserted, skipped })
   })
 
   r.get('/items', async (c) => {
@@ -415,6 +526,7 @@ export function createSpamApp(): Hono {
         ruleScore: spamItems.ruleScore,
         llmScore: spamItems.llmScore,
         finalAction: spamItems.finalAction,
+        runId: spamItems.runId,
         categoryId: spamItems.categoryId,
         createdAt: spamItems.createdAt,
       })
@@ -565,8 +677,12 @@ export function createSpamApp(): Hono {
           status: 'queued',
           decidedAt: null,
           finalAction: null,
+          runId: null,
+          llmScore: null,
+          graphId: null,
         })
         .where(eq(spamItems.id, id))
+      queueSpamStageB(uid, id)
     } else {
       const fa =
         act === 'allow'
@@ -623,39 +739,8 @@ export function createSpamApp(): Hono {
       return c.json(noDb(), 503)
     }
     const uid = userId(c)
-    const d = parsed.data
-    const categoryId = await resolveCategoryId(db, uid, d.categoryId)
-
-    const [row] = await db
-      .insert(spamItems)
-      .values({
-        userId: uid,
-        source: d.source,
-        body: d.body,
-        externalId: d.externalId ?? null,
-        authorFeatures: d.authorFeatures ?? {},
-        categoryId,
-        status: 'new',
-      })
-      .returning({ id: spamItems.id, status: spamItems.status })
-
-    try {
-      await scoreSpamItemById(db, uid, row!.id)
-    } catch (e) {
-      console.error('[spam] scoreSpamItemById failed', e)
-    }
-
-    const [after] = await db
-      .select({ id: spamItems.id, status: spamItems.status })
-      .from(spamItems)
-      .where(eq(spamItems.id, row!.id))
-      .limit(1)
-
-    if (after!.status === 'queued' || after!.status === 'quarantined') {
-      queueSpamStageB(uid, after!.id)
-    }
-
-    return c.json({ id: after!.id, status: after!.status })
+    const out = await ingestSpamItemFromPayload(db, uid, parsed.data)
+    return c.json(out)
   })
 
   return r

@@ -2,6 +2,8 @@
 
 Node **graph editor** (Input → **LLM** → Output) with a tiny **Hono** API. The default is the app pipeline; `?demo=comfy` loads the old simulated ComfyUI workflow, and `?stress=N` loads a long **Stress** chain (default 200) for pan/zoom profiling.
 
+**Architecture & spam pipeline:** See **[docs/README.md](./docs/README.md)** (index) and **[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)** (deep dive). Spam triage: **`/spam`**; policy graph: **`spam-default`** + **Publish spam policy** in the toolbar.
+
 ## Deploy (public URL)
 
 Step-by-step **Vercel UI + Render API**: **[DEPLOY.md](./DEPLOY.md)** (echo mode works without `OPENAI_API_KEY`). After deploy, add your live link here and in the repo About section.

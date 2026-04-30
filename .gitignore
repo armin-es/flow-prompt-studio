@@ -17,8 +17,7 @@ dist-ssr
 .env.*
 !.env.example
 
-# Local-only planning docs (keep on disk, do not publish)
-docs/
+# Local drafts / scratch (optional): name files *.local.md or use /notes outside repo
 
 # Cursor IDE (rules stay local)
 .cursor/

@@ -135,6 +135,13 @@ export function authMiddleware(): MiddlewareHandler {
     if (skipAuthPath(path, c.req.method)) {
       return next()
     }
+    const spamDevOk =
+      path.startsWith('/api/spam') &&
+      (process.env.NODE_ENV !== 'production' || process.env.SPAM_ALLOW_X_USER_ID === '1') &&
+      Boolean(c.req.header('x-user-id')?.trim())
+    if (spamDevOk) {
+      return next()
+    }
     const clerkId = c.get('resolvedUserId')
     if (typeof clerkId === 'string' && clerkId.length > 0) {
       return next()

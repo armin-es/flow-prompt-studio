@@ -93,9 +93,18 @@ export function SpamDetail({ itemId }: { itemId: string }) {
     <div className="spam-inbox">
       <header className="spam-inbox-header">
         <h1 className="spam-inbox-title">Spam item</h1>
-        <a className="btn" href="/spam">
-          ← Inbox
-        </a>
+        <div className="spam-inbox-header-links">
+          <a
+            className="btn btn-muted"
+            href={`/?spamPipeline=${encodeURIComponent(itemId)}`}
+            title="Open the spam-default graph in the studio pre-loaded with this item. Edit the judge prompt, run, then publish."
+          >
+            Edit pipeline in studio
+          </a>
+          <a className="btn" href="/spam">
+            ← Inbox
+          </a>
+        </div>
       </header>
 
       {error ? (

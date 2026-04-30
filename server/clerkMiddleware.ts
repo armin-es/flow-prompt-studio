@@ -41,6 +41,22 @@ export function clerkAuthMiddleware(): MiddlewareHandler {
     const raw = c.req.header('Authorization')
     const m = /^Bearer\s+(.+)$/i.exec(raw?.trim() ?? '')
     const token = m?.[1]?.trim()
+
+    /**
+     * Local/demo: `/spam` uses `X-User-Id: dev` without a Clerk session. In production, require JWT
+     * unless you set SPAM_ALLOW_X_USER_ID=1 (internal tooling only).
+     */
+    const spamDevHeaderOk =
+      path.startsWith('/api/spam') &&
+      (process.env.NODE_ENV !== 'production' || process.env.SPAM_ALLOW_X_USER_ID === '1')
+    if (!token && spamDevHeaderOk) {
+      const xUser = c.req.header('x-user-id')?.trim()
+      if (xUser) {
+        c.set('resolvedUserId', xUser)
+        return next()
+      }
+    }
+
     if (!token) {
       return c.json({ error: 'Unauthorized', code: 'clerk_token_required' }, 401)
     }

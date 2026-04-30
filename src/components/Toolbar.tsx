@@ -1,5 +1,5 @@
 import { SignedIn, UserButton } from '@clerk/clerk-react'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useGraphStore } from '../store/graphStore'
 import { useExecutionStore } from '../store/executionStore'
 import { useRunOutputCacheStore } from '../store/runOutputCacheStore'
@@ -10,11 +10,13 @@ import {
   type SerializedGraph,
 } from '../lib/serializeGraph'
 import {
+  apiPath,
   getLastServerGraphId,
   loadGraphFromServer,
   saveGraphToServer,
   serverSyncEnabled,
 } from '../lib/serverApi'
+import { apiFetch } from '../lib/apiFetch'
 import { resetHistoryToCurrent } from '../lib/graphHistory'
 import type { ComfyWorkflow } from '../types'
 import { SAMPLE_COMFY_WORKFLOW } from '../data/sampleComfyWorkflow'
@@ -24,6 +26,7 @@ import { PICK_DEMO_GRAPH } from '../data/pickDemoGraph'
 import { JOIN_LLM_DEMO_GRAPH } from '../data/joinLlmDemoGraph'
 import { RAG_DEMO_GRAPH } from '../data/ragDemoGraph'
 import { AGENT_DEMO_GRAPH } from '../data/agentDemoGraph'
+import { SPAM_DEMO_GRAPH } from '../data/spamDemoGraph'
 import { buildStressGraph } from '../data/stressGraph'
 import { NodePalette } from './NodePalette'
 import type { CreatableAppNodeType } from '../lib/createAppNode'
@@ -65,6 +68,39 @@ export function Toolbar({
   const scale = useGraphStore((s) => s.viewport.scale)
   const isRunning = useExecutionStore((s) => s.isRunning)
   const nodeStates = useExecutionStore((s) => s.nodeStates)
+  const [publishBusy, setPublishBusy] = useState(false)
+
+  /** Returns true when the current canvas looks like a spam pipeline (has SpamItemSource). */
+  const isSpamPipeline = useMemo(
+    () => Array.from(nodes.values()).some((n) => n.type === 'AppSpamItemSource'),
+    [nodes],
+  )
+
+  async function publishSpamPolicy(): Promise<void> {
+    setPublishBusy(true)
+    try {
+      const data = captureGraph()
+      const res = await apiFetch(apiPath('/api/spam/pipeline'), {
+        method: 'PATCH',
+        headers: { 'X-User-Id': 'dev', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data }),
+      })
+      if (!res.ok) {
+        const t = await res.text()
+        alert(`Publish failed (${res.status}): ${t}`)
+        return
+      }
+      const j = (await res.json()) as { graphId?: string }
+      if (j.graphId) {
+        try { localStorage.setItem('flow-prompt-spam-pipeline-id', j.graphId) } catch { /* ignore */ }
+      }
+      alert('Spam policy published. The next ingest will use this graph\'s judge prompt.')
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Publish failed')
+    } finally {
+      setPublishBusy(false)
+    }
+  }
 
   const runningNode = Array.from(nodeStates.entries()).find(([, s]) => s.status === 'running')
   const doneCount = Array.from(nodeStates.values()).filter((s) => s.status === 'done').length
@@ -198,6 +234,17 @@ export function Toolbar({
           type="button"
           className="btn"
           onClick={() => {
+            loadAppGraph(SPAM_DEMO_GRAPH)
+            resetHistoryToCurrent()
+          }}
+          title="Spam triage pipeline: SpamItem → Tee → SpamRules + Join → LLM judge → Output (needs DATABASE_URL + OPENAI_API_KEY)"
+        >
+          Spam pipeline
+        </button>
+        <button
+          type="button"
+          className="btn"
+          onClick={() => {
             onLoadWorkflow(SAMPLE_COMFY_WORKFLOW)
             resetHistoryToCurrent()
           }}
@@ -222,9 +269,20 @@ export function Toolbar({
         <button type="button" className="btn" onClick={onExportGraph}>
           Export
         </button>
-        <a className="btn" href="/spam" title="Spam triage inbox (Phase 0)">
-          Spam
+        <a className="btn" href="/spam" title="Spam triage inbox">
+          Spam inbox
         </a>
+        {isSpamPipeline ? (
+          <button
+            type="button"
+            className="btn"
+            disabled={publishBusy}
+            onClick={() => void publishSpamPolicy()}
+            title="PATCH /api/spam/pipeline — saves this graph's judge prompt as the active Stage B policy. Next ingest will use it."
+          >
+            {publishBusy ? 'Publishing…' : 'Publish spam policy'}
+          </button>
+        ) : null}
         {serverSyncEnabled() && (
           <>
             <button
