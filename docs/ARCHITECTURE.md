@@ -15,27 +15,28 @@ Flow Prompt Studio is a **visual LLM workflow editor** with a built-in **spam tr
 ```
 Browser (Vite SPA)                    API Server (Hono / Node)
 ─────────────────────────────────     ──────────────────────────────────────
- Graph Editor                          /api/spam/*
-  ├─ GraphEditor (canvas)               ├─ POST /items           (ingest)
-  ├─ NodePalette                        ├─ GET  /items            (triage list)
-  ├─ NodeInspector                      ├─ GET  /items/:id        (detail + stage B)
-  ├─ Toolbar                            ├─ POST /items/:id/score  (manual re-run)
-  │    └─ "Publish spam policy"         ├─ POST /items/:id/decision
-  └─ runGraph (client executor)         ├─ GET/PATCH /pipeline   (graph CRUD for policy)
-                                        ├─ POST /demo/seed        (fixtures)
- Spam Inbox (/spam)                     └─ GET/POST/PATCH /rules
+ Shell                                 /api/spam/*
+  ├─ EditorTopBar                       ├─ POST /items           (ingest)
+  │    ├─ AppMenu (open/export/tpls)    ├─ GET  /items            (triage list)
+  │    └─ workflow name + save          ├─ GET  /items/:id        (detail + stage B)
+  └─ WorkflowSidebar (list/open/del)    ├─ POST /items/:id/score  (manual re-run)
+                                        ├─ POST /items/:id/decision
+ Graph Editor                           ├─ GET/PATCH /pipeline   (graph CRUD for policy)
+  ├─ GraphEditor (canvas)               ├─ POST /demo/seed        (fixtures)
+  ├─ NodePalette                        └─ GET/POST/PATCH /rules
+  ├─ Toolbar  ← run, fit, add node        /api/graphs/*  (generic graph CRUD)
+  └─ runGraph (client executor)        /api/corpora/* (corpus CRUD + embed trigger)
+                                       /api/complete  (LLM proxy)
+ Spam Inbox (/spam)                    /api/embed     (embedding proxy)
   ├─ SpamInbox (list + polling)
-  ├─ SpamDetail                        /api/graphs/*  (generic graph CRUD)
-  │    └─ "Edit pipeline in studio"    /api/corpora/* (corpus CRUD + embed trigger)
-  └─ SpamRulesPanel                    /api/complete  (LLM proxy)
-                                       /api/embed     (embedding proxy)
- main.tsx
-  └─ ?spamPipeline=<uuid>            PostgreSQL + pgvector
-      loads graph from server +        ├─ graphs, runs, users
-      pre-fills SpamItemSource         ├─ corpora, chunks (vector(1536))
+  ├─ SpamDetail                      PostgreSQL + pgvector
+  │    └─ "Edit pipeline in studio"    ├─ graphs, runs, users
+  └─ SpamRulesPanel                    ├─ corpora, chunks (vector(1536))
                                        ├─ spam_items, spam_categories
-                                       ├─ spam_decisions (append-only)
-                                       └─ spam_rules
+ main.tsx                              ├─ spam_decisions (append-only)
+  └─ ?spamPipeline=<uuid>             └─ spam_rules
+      loads graph from server +
+      pre-fills SpamItemSource
 ```
 
 ---
@@ -66,23 +67,64 @@ Edges connect `(sourceNodeId, portIndex)` → `(targetNodeId, portIndex)`. The f
 
 ### 3c. Node executor registry
 
-`executors.ts` exports a `getExecutor(type)` function that returns an async function `(node, inputs, onProgress, ctx) → outputs`. Adding a new node type is three files:
+`executors.ts` exports a `getExecutor(type)` function that returns an async function `(node, inputs, onProgress, ctx) → outputs`. Adding a new node type currently touches four places:
 
 1. The executor function in `executors.ts`
-2. A `case` in `createAppNode.ts` (default size/label)
-3. A row in `appTextNodes.ts` (palette + inspector)
+2. A `case` in `createAppNode.ts` (default size, label, ports)
+3. A row in `NodePalette.tsx` (palette group)
+4. A `{n.type === 'Foo' && …}` branch in `NodeComponent.tsx` for custom widgets/preview UI
 
-No framework, no registration macro. The pattern is intentionally boring.
+No framework, no registration macro. The pattern is intentionally straightforward. A planned refactor (`docs/06-node-registry-pr.md`) would collapse these into a single `NodeKindSpec` per file — type, ports, widget declarations, executor, and optional render hook — so registration is one import, not four edits. That refactor is not yet implemented.
 
 ---
 
-## 4. The spam triage pipeline
+## 4. UI shell and workflow persistence
 
-### 4a. Why it lives inside the graph app
+### 4a. Shell layout
+
+The editor shell is a Comfy-inspired three-panel layout:
+
+- **`EditorTopBar`** (docked top) — `AppMenu` button on the left, workflow display name + unsaved-dot in the centre, Save button on the right.
+- **`WorkflowSidebar`** (docked left) — lists server-persisted workflows for the current user; click to open, shows dirty state, delete.
+- **`GraphEditor`** (fills remaining space) — the canvas with nodes, edges, and the `Toolbar` docked at the bottom.
+
+### 4b. Workflow persistence and dirty tracking
+
+`workflowDocStore` (Zustand, `localStorage`-persisted) tracks three things:
+
+- `serverGraphId` — UUID of the workflow currently open from the server (`null` for local-only).
+- `displayName` — the editable title shown in the top bar.
+- `savedName` / `lastAlignedRevision` — the name and graph-content revision as of the last successful server save or open.
+
+`workflowIsDirty(graphContentRevision, lastAlignedRevision, displayName?, savedName?)` returns `true` when either the canvas content or the name has diverged from the last save. The Save button is disabled only when dirty is false, so name-only edits also enable it.
+
+The graph save/load path:
+
+```
+Save clicked
+  → POST /api/graphs  (new) or PATCH /api/graphs/:id  (existing)
+  → server returns { id, name }
+  → openServerGraph(id, name, currentRevision)  ← clears dirty state
+```
+
+```
+Sidebar row clicked
+  → GET /api/graphs/:id
+  → deserialize JSON → replace Zustand graph store
+  → openServerGraph(id, name, currentRevision)
+```
+
+This means the URL stays stable (no graph ID in the route); the current workflow is simply the one last opened or saved in this session, restored from `localStorage` on next load.
+
+---
+
+## 5. The spam triage pipeline
+
+### 5a. Why it lives inside the graph app
 
 The existing infrastructure provides for free: a graph engine with retries and abort; a corpus system with chunking + pgvector embeddings + cosine retrieval; a `runs` audit table; an OpenAI client; and a UI for editing graphs. A spam pipeline is `Rules → Retrieve → Prompt → Judge → Action`. Re-implementing the primitives in a separate repo would have taken 2–3 weeks of plumbing.
 
-### 4b. Two-stage classification
+### 5b. Two-stage classification
 
 ```
 POST /api/spam/items
@@ -121,7 +163,7 @@ POST /api/spam/items
   Reviewer inbox → confirms or overrides → spam_decisions row (reviewerId≠null)
 ```
 
-### 4c. Why the graph is the source of truth for Stage B
+### 5c. Why the graph is the source of truth for Stage B
 
 Stage B executes the saved **`spam-default`** graph on the server (`runSavedGraph`): the same topology and node widgets the editor uses for **Run**, with server-side executors (`server/engine/serverExecutors.ts`). The judge **system** string still comes from `spam-llm.widgetValues[0]`. This means:
 
@@ -129,7 +171,7 @@ Stage B executes the saved **`spam-default`** graph on the server (`runSavedGrap
 - Prompt changes **deploy without a code push** — edit in the studio, `PATCH /api/spam/pipeline`, done.
 - The change is **auditable** — the `runs` table links each item's Stage B result to the `graph_id` that drove it; you can query "which prompt version produced these false positives."
 
-### 4d. The policy edit loop
+### 5d. The policy edit loop
 
 ```
 Reviewer sees wrong verdict on item X
@@ -152,7 +194,7 @@ Engineer edits spam-llm system prompt → clicks Run
     → sees new verdict in AppOutput panel (browser only, no DB write)
     │
     ▼  satisfied?
-"Publish spam policy" (Toolbar, visible when AppSpamItemSource is in graph)
+"Publish spam policy" (AppMenu, visible when the graph includes an AppSpamItemSource node)
     │
     ▼
 PATCH /api/spam/pipeline  (sends current canvas JSON)
@@ -162,7 +204,7 @@ PATCH /api/spam/pipeline  (sends current canvas JSON)
 Next ingest: `runSavedGraph` inside `runSpamStageB` uses the updated graph ✓
 ```
 
-### 4e. Rules engine (Stage A)
+### 5e. Rules engine (Stage A)
 
 `spamRulesEngine.ts` is pure TypeScript, no DB, no LLM. It evaluates three rule kinds:
 
@@ -174,7 +216,7 @@ Scores accumulate additively. The thresholds (`SPAM_TAU_ALLOW = 2`, `SPAM_TAU_QU
 
 The rules are rows in `spam_rules`, CRUD via `/api/spam/rules`, togglable in the reviewer console. Baseline rules are seeded idempotently on first use.
 
-### 4f. Combine logic
+### 5f. Combine logic
 
 `combineSpamStageB` is a small decision tree, not ML. Rules for the current version:
 
@@ -185,13 +227,14 @@ The rules are rows in `spam_rules`, CRUD via `/api/spam/rules`, togglable in the
 | < τ_quarantine | spam | ≥ 0.88 AND rule ≥ 6 | remove |
 | < τ_quarantine | spam | ≥ 0.45 | quarantine |
 | < τ_quarantine | ham | ≥ 0.55 AND rule ≤ τ_allow | allow |
+| < τ_quarantine | ham | ≥ 0.55 (rule > τ_allow) | shadow |
 | — | — | — | shadow (default) |
 
 This is the natural place to discuss: why not just trust the LLM? Because the LLM is non-deterministic, expensive, and can be prompt-injected. The rule score provides a cheap, auditable lower bound; the LLM provides context the rules can't model (semantics, intent, novelty). The combiner gives you dials for each failure mode.
 
 ---
 
-## 5. Data model
+## 6. Data model
 
 ### Core tables (pre-spam)
 
@@ -239,7 +282,7 @@ spam_rules       id (uuid), user_id, name, enabled (bool), weight (real),
 
 ---
 
-## 6. Retrieval (RAG path)
+## 7. Retrieval (RAG path)
 
 ### Client-side (BM25)
 
@@ -251,27 +294,27 @@ spam_rules       id (uuid), user_id, name, enabled (bool), weight (real),
 
 1. Server receives query text + corpus ID.
 2. Calls `openai.embeddings.create` → `vector(1536)`.
-3. Issues `ORDER BY embedding <=> $vec LIMIT k` against `chunks` (pgvector HNSW index).
+3. Issues `ORDER BY embedding <=> $vec LIMIT k` against `chunks` (pgvector `<=>` cosine operator, sequential scan today).
 4. Returns ranked snippets.
 
-The HNSW index makes cosine retrieval sub-linear even at millions of chunks.
+There is no dedicated vector index in the current migrations (only btree on foreign keys); a production deployment would add an HNSW index via `CREATE INDEX ... USING hnsw` to make cosine retrieval sub-linear at scale.
 
 For **spam Stage B specifically**, `retrieveCosineChunks` bypasses the HTTP layer and calls the DB directly (server-to-server, same process), avoiding a round-trip. The query uses raw SQL via `getPool()` rather than the Drizzle ORM because pgvector's `<=>` operator requires a literal vector string that Drizzle doesn't natively template.
 
 ### Embedding pipeline
 
-`embedPendingChunksForCorpus` runs after any corpus write. It batches un-embedded chunks (where `embedding IS NULL`), calls OpenAI in groups of 64, and writes vectors back. The server auto-triggers it after save when `OPENAI_API_KEY` is set; it can also be triggered manually via `POST /api/corpora/:id/embed`.
+`embedPendingChunksForCorpus` runs after any corpus write. It batches un-embedded chunks (where `embedding IS NULL`), calls OpenAI in groups of 32 (`EMBED_BATCH = 32`), and writes vectors back. The server auto-triggers it after save when `OPENAI_API_KEY` is set; it can also be triggered manually via `POST /api/corpora/:id/embed`.
 
 ---
 
-## 7. Auth model
+## 8. Auth model
 
 Three modes, selected by environment:
 
 | Mode | Env vars | How it works |
 |------|----------|-------------|
 | **Dev / local** | (none) | All routes open; `X-User-Id: dev` header sets tenant. |
-| **Password / Bearer** | `AUTH_SECRET`, `AUTH_PASSWORD` or `API_AUTH_TOKEN` | Cookie session (HS256 JWT) or static Bearer token. |
+| **Password / Bearer** | `AUTH_SECRET` + (`AUTH_PASSWORD` or `API_AUTH_TOKEN`) | Cookie session (HS256 JWT via `jose`) or static Bearer token. Both require `AUTH_SECRET` ≥ 32 chars. |
 | **Clerk** | `CLERK_SECRET_KEY` | `verifyToken` on every `/api/*` request; `sub` becomes `user_id`. |
 
 Spam routes in non-production additionally accept `X-User-Id` without a full session (`SPAM_ALLOW_X_USER_ID=1` in production), enabling a separate internal tooling token pattern.
@@ -280,7 +323,7 @@ Multi-tenancy is row-level: every DB row carries `user_id`; every query ANDs `eq
 
 ---
 
-## 8. Transport + streaming
+## 9. Transport + streaming
 
 ### SSE streaming (`/api/complete/stream`)
 
@@ -302,7 +345,7 @@ SSE is unidirectional (server → client), which is all token streaming needs. I
 
 ---
 
-## 9. Performance considerations
+## 10. Performance considerations
 
 ### Canvas rendering
 
@@ -318,7 +361,7 @@ Stage B is deliberately async (`setImmediate`) to keep ingest at < 10 ms. The ty
 
 ---
 
-## 10. Key design decisions and trade-offs
+## 11. Key design decisions and trade-offs
 
 ### Decision 1: Extend vs. fork for spam
 
@@ -351,7 +394,7 @@ A learned combiner would be more accurate but requires labelled training data (w
 
 ---
 
-## 11. What I would do differently / scale path
+## 12. What I would do differently / scale path
 
 | Current | At 100× scale |
 |---------|--------------|
@@ -365,19 +408,19 @@ A learned combiner would be more accurate but requires labelled training data (w
 
 ---
 
-## 12. Roadmap: generic server-side graph execution
+## 13. Roadmap: generic server-side graph execution
 
 **Current (v1):** `runSavedGraph` (`server/engine/runSavedGraph.ts`) executes stored JSON with server executors for `AppInput`, `AppOutput`, `AppTee`, `AppJoin`, `AppSpamItemSource`, `AppSpamRules`, and `AppLlm`. **Spam Stage B** uses it for the LLM path: topology matches the saved `spam-default` graph; cosine retrieval is still applied in `runSpamStageB` and **appended** to the LLM user message so the judge JSON schema and `citedExample` / `citedPolicy` behavior stay aligned with the pre-existing pipeline.
 
 The **client** runner (`runGraph.ts`) remains for interactive testing; it **does not** persist verdicts to `spam_items`.
 
-**Next:** Broaden server executor coverage (e.g. `AppRetrieve`, `AppAgent`), share more code with the client via a `shared/` package, and optionally express retrieval entirely as graph nodes so production is one literal graph walk without app-layer augmentation. See **[13-server-graph-executor-roadmap.md](13-server-graph-executor-roadmap.md)**.
+**Next:** Broaden server executor coverage (e.g. `AppRetrieve`, `AppAgent`), share more code with the client via a `shared/` package, and optionally express retrieval entirely as graph nodes so production is one literal graph walk without app-layer augmentation. See **[13-server-graph-executor-roadmap.md](13-server-graph-executor-roadmap.md)**. A parallel track is the **node registry refactor** (`docs/06-node-registry-pr.md`) that would make adding node types a single-file change, paving the way for out-of-tree extensions.
 
 **Portfolio framing:** A specialized spam pipeline editor at work → a personal project generalizes the **graph engine + persistence** so spam (and other verticals) become **extensions** on a composable LLM editor.
 
 ---
 
-## 13. One-paragraph summary for verbal delivery
+## 14. One-paragraph summary for verbal delivery
 
 > "It's a two-part system. The front half is a visual LLM workflow editor — think a lightweight Comfy UI for language models. Graphs of nodes: inputs, retrieval, LLM, join, agent. You build a pipeline visually, run it in the browser, and the LLM calls proxy through a Hono server so the API key never touches the client.
 >

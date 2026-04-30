@@ -1443,6 +1443,14 @@ html, body, #root {
   z-index: 240;
 }
 
+/* Toolbar sits at the bottom of the canvas — a downward panel is clipped by the
+   viewport. Open above the trigger instead (same pattern as flipped chevron). */
+.toolbar.toolbar-docked .node-palette-dropdown {
+  top: auto;
+  bottom: calc(100% + 6px);
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.55);
+}
+
 .node-palette-hint {
   margin: 0;
   padding: 4px 14px 10px;

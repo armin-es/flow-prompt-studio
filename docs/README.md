@@ -2,7 +2,7 @@
 
 | Doc | Purpose |
 | --- | --- |
-| **[ARCHITECTURE.md](ARCHITECTURE.md)** | End-to-end system architecture: graph engine, spam pipeline, data model, auth, retrieval, trade-offs. Use for interviews and system design prep. |
+| **[ARCHITECTURE.md](ARCHITECTURE.md)** | End-to-end system architecture: graph engine, UI shell / workflow persistence, spam pipeline, data model, auth, retrieval, trade-offs, scale path. Use for hiring-manager walkthroughs and system design sessions. |
 | **[13-server-graph-executor-roadmap.md](13-server-graph-executor-roadmap.md)** | Planned re-architecture: generic `runSavedGraph` on the server so any stored graph can drive production — extension boundaries, executor layering. |
 | **[07-tech-stack-rationale.md](07-tech-stack-rationale.md)** | Why Vite + Hono + two-process dev, etc. |
 | **[08-from-demo-to-product.md](08-from-demo-to-product.md)** | Staged product roadmap (RAG → persistence → …). The opening “anchor” section is **historical** for Stage A; current shipped behavior is in ARCHITECTURE.md. |
