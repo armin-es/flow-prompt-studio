@@ -32,6 +32,7 @@ import {
   execSpamRetrieveExamples,
   execSpamRetrievePolicy,
 } from './spamRetrieveExec.js'
+import { ensureSpamSeedCorpora } from './spamSeedCorpora.js'
 
 const ingestBody = z.object({
   source: z.string().min(1).max(200),
@@ -374,6 +375,7 @@ export function createSpamApp(): Hono {
     }
     const uid = userId(c)
     await ensureUserCategoryAndRules(db, uid)
+    await ensureSpamSeedCorpora(db, uid)
     const categoryId = parsed.data.categoryId?.trim() || null
     const k = parsed.data.k ?? 5
     try {
@@ -409,6 +411,7 @@ export function createSpamApp(): Hono {
     }
     const uid = userId(c)
     await ensureUserCategoryAndRules(db, uid)
+    await ensureSpamSeedCorpora(db, uid)
     const categoryId = parsed.data.categoryId?.trim() || null
     const k = parsed.data.k ?? 5
     try {
