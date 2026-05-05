@@ -13,14 +13,14 @@ import {
   useWorkflowDocStore,
   workflowIsDirty,
 } from '../store/workflowDocStore'
-import type { ComfyWorkflow } from '../types'
+import type { PortableWorkflow } from '../types'
 import { AppMenu } from './AppMenu'
 import { useDialog } from '../lib/dialog'
 import { iconPropsSm } from '../lib/lucideProps'
 import { saveShortcutTitle } from '../lib/menuShortcutHint'
 
 type Props = {
-  onLoadWorkflow: (workflow: ComfyWorkflow) => void
+  onLoadWorkflow: (workflow: PortableWorkflow) => void
   onExportGraph: () => void
   onNewWorkflow: () => void
   onRefreshSidebar: () => void

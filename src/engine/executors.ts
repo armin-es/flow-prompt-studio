@@ -182,7 +182,7 @@ const executors: Record<string, ExecutorFn> = {
 
   SaveImage: async (node, inputs, _onProgress, ctx) => {
     await delay(150, ctx.signal)
-    const prefix = (node.widgetValues[0] as string) ?? 'ComfyUI'
+    const prefix = (node.widgetValues[0] as string) ?? 'Workflow'
     const img = inputs[0] as NodeOutput | undefined
     return {
       0: {

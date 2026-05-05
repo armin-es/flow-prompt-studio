@@ -934,7 +934,7 @@ html, body, #root {
   cursor: pointer;
 }
 
-/* Visible Comfy/edge lines only: draft wire is .wire-draft and must stay
+/* Visible edge lines only: draft wire is .wire-draft and must stay
    pointer-events: none (see .wire-draft) or pointerup will hit the draft path
    and never reach [data-input-port] below. */
 .edge-path:not(.edge-path-hit):not(.wire-draft) {

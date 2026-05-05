@@ -45,8 +45,8 @@ export interface ViewportState {
   scale: number
 }
 
-// ComfyUI workflow JSON format
-export interface ComfyWorkflowNode {
+/** Portable workflow JSON: top-level `nodes` array plus numeric link tuples. */
+export interface PortableWorkflowNode {
   id: number
   type: string
   pos: [number, number]
@@ -56,7 +56,7 @@ export interface ComfyWorkflowNode {
   widgets_values?: unknown[]
 }
 
-export interface ComfyWorkflowLink {
+export interface PortableWorkflowLink {
   // [link_id, source_node_id, source_slot, target_node_id, target_slot, type]
   0: number
   1: number
@@ -66,7 +66,7 @@ export interface ComfyWorkflowLink {
   5: string
 }
 
-export interface ComfyWorkflow {
-  nodes: ComfyWorkflowNode[]
-  links: ComfyWorkflowLink[]
+export interface PortableWorkflow {
+  nodes: PortableWorkflowNode[]
+  links: PortableWorkflowLink[]
 }

@@ -1,7 +1,7 @@
-import type { ComfyWorkflow } from '../types'
+import type { PortableWorkflow } from '../types'
 
-/** Default demo workflow: simulated ComfyUI diffusion graph (no real GPU). */
-export const SAMPLE_COMFY_WORKFLOW: ComfyWorkflow = {
+/** Sample portable workflow JSON (diffusion-style demo graph, simulated in-app). */
+export const SAMPLE_PORTABLE_WORKFLOW: PortableWorkflow = {
   nodes: [
     {
       id: 1, type: 'CheckpointLoaderSimple', pos: [50, 80],
@@ -57,7 +57,7 @@ export const SAMPLE_COMFY_WORKFLOW: ComfyWorkflow = {
       size: [200, 80],
       inputs: [{ name: 'images', type: 'IMAGE', link: 9 }],
       outputs: [],
-      widgets_values: ['ComfyUI'],
+      widgets_values: ['output'],
     },
   ],
   links: [

@@ -1,4 +1,4 @@
-import type { ComfyWorkflow } from '../types'
+import type { PortableWorkflow } from '../types'
 import type { AppGraphState } from '../data/defaultAppGraph'
 import { DEFAULT_APP_GRAPH } from '../data/defaultAppGraph'
 import { TOPOLOGY_DEMO_GRAPH } from '../data/topologyDemoGraph'
@@ -7,12 +7,12 @@ import { JOIN_LLM_DEMO_GRAPH } from '../data/joinLlmDemoGraph'
 import { RAG_DEMO_GRAPH } from '../data/ragDemoGraph'
 import { AGENT_DEMO_GRAPH } from '../data/agentDemoGraph'
 import { SPAM_DEMO_GRAPH } from '../data/spamDemoGraph'
-import { SAMPLE_COMFY_WORKFLOW } from '../data/sampleComfyWorkflow'
+import { SAMPLE_PORTABLE_WORKFLOW } from '../data/samplePortableWorkflow'
 import { buildStressGraph } from '../data/stressGraph'
 
 export type TemplateCtx = {
   loadAppGraph: (g: AppGraphState) => void
-  loadComfy: (w: ComfyWorkflow) => void
+  loadPortableWorkflow: (w: PortableWorkflow) => void
   resetHistory: () => void
 }
 
@@ -83,12 +83,12 @@ export const APP_TEMPLATE_ENTRIES: AppTemplateEntry[] = [
     apply: loadApp(SPAM_DEMO_GRAPH),
   },
   {
-    id: 'comfy',
-    label: 'Comfy demo',
-    description: 'Sample ComfyUI workflow JSON',
+    id: 'portable-workflow',
+    label: 'Portable workflow',
+    description: 'Sample nodes-and-links JSON (diffusion-style demo)',
     category: 'advanced',
     apply: (ctx) => {
-      ctx.loadComfy(SAMPLE_COMFY_WORKFLOW)
+      ctx.loadPortableWorkflow(SAMPLE_PORTABLE_WORKFLOW)
       ctx.resetHistory()
     },
   },

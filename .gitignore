@@ -19,6 +19,9 @@ dist-ssr
 
 # Local drafts / scratch (optional): name files *.local.md or use /notes outside repo
 
+# Project docs stay local only (not versioned)
+docs/
+
 # Cursor IDE (rules stay local)
 .cursor/
 

@@ -11,7 +11,7 @@ import { PICK_DEMO_GRAPH } from './data/pickDemoGraph'
 import { JOIN_LLM_DEMO_GRAPH } from './data/joinLlmDemoGraph'
 import { RAG_DEMO_GRAPH } from './data/ragDemoGraph'
 import { AGENT_DEMO_GRAPH } from './data/agentDemoGraph'
-import { SAMPLE_COMFY_WORKFLOW } from './data/sampleComfyWorkflow'
+import { SAMPLE_PORTABLE_WORKFLOW } from './data/samplePortableWorkflow'
 import { buildStressGraph } from './data/stressGraph'
 import { applyGraph, type SerializedGraph } from './lib/serializeGraph'
 import { resetHistoryToCurrent } from './lib/graphHistory'
@@ -25,8 +25,8 @@ async function bootstrap() {
   await useCorpusStore.getState().init()
 
   const p = new URLSearchParams(window.location.search)
-  if (p.get('demo') === 'comfy') {
-    useGraphStore.getState().loadWorkflow(SAMPLE_COMFY_WORKFLOW)
+  if (p.get('demo') === 'portable') {
+    useGraphStore.getState().loadWorkflow(SAMPLE_PORTABLE_WORKFLOW)
     resetHistoryToCurrent()
   } else if (p.get('demo') === 'topology') {
     useGraphStore.getState().loadAppGraph(TOPOLOGY_DEMO_GRAPH)

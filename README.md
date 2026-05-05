@@ -1,6 +1,6 @@
 # Flow Prompt Studio
 
-Node **graph editor** (Input → **LLM** → Output) with a tiny **Hono** API. The default is the app pipeline; `?demo=comfy` loads the old simulated ComfyUI workflow, and `?stress=N` loads a long **Stress** chain (default 200) for pan/zoom profiling.
+Node **graph editor** (Input → **LLM** → Output) with a tiny **Hono** API. The default is the app pipeline; `?demo=portable` loads a simulated portable workflow (nodes + links JSON), and `?stress=N` loads a long **Stress** chain (default 200) for pan/zoom profiling.
 
 **Architecture & spam pipeline:** See **[docs/README.md](./docs/README.md)** (index) and **[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)** (deep dive). Spam triage: **`/spam`**; policy graph: **`spam-default`** + **Publish spam policy** in the toolbar.
 
@@ -47,7 +47,7 @@ Split UI/API hosts need matching **`CORS_ORIGINS`** (your site origin) and, on H
 | Param | Example | Effect |
 |--------|---------|--------|
 | (none) | `/` | Default app graph; may **restore** from `localStorage` (`flow-prompt-v1`) |
-| `demo` | `?demo=comfy` | Comfy simulation on first load |
+| `demo` | `?demo=portable` | Portable workflow sample on first load |
 | `demo` | `?demo=topology` | **Tee/Join** demo: fan-out and fan-in (TEXT only) |
 | `demo` | `?demo=pick` | **Pick 2→1** demo: two sources, one chosen output |
 | `demo` | `?demo=joinllm` | **Join+LLM**: two **AppInput**s → **AppJoin** → **AppLlm** → **AppOutput** |
@@ -57,9 +57,9 @@ Split UI/API hosts need matching **`CORS_ORIGINS`** (your site origin) and, on H
 
 ## Toolbar (quick)
 
-- **App pipeline** / **Tee/Join** / **Pick 2→1** / **Join+LLM** / **RAG** / **Agent** / **Comfy demo** / **Stress 200** — **Tee/Join**, **Pick**, and **Retrieve** can run with no API. **RAG** uses **BM25** (in-browser ranking over an in-node corpus) by default; **cosine** uses **`POST /api/embed`** (needs `OPENAI_API_KEY` on the server). The **LLM** step in **RAG** still uses the same completion route as other presets (echo without a key). **Agent** uses **`POST /api/complete/tools`** per step (echo/disabled message without a key); built-in tools run in the browser. **Join+LLM** is two sources merged, then the model, then **Output** (real completions need a key like **App pipeline**). **Stress** is for many nodes + edges.
+- **App pipeline** / **Tee/Join** / **Pick 2→1** / **Join+LLM** / **RAG** / **Agent** / **Portable workflow** / **Stress 200** — **Tee/Join**, **Pick**, and **Retrieve** can run with no API. **RAG** uses **BM25** (in-browser ranking over an in-node corpus) by default; **cosine** uses **`POST /api/embed`** (needs `OPENAI_API_KEY` on the server). The **LLM** step in **RAG** still uses the same completion route as other presets (echo without a key). **Agent** uses **`POST /api/complete/tools`** per step (echo/disabled message without a key); built-in tools run in the browser. **Join+LLM** is two sources merged, then the model, then **Output** (real completions need a key like **App pipeline**). **Stress** is for many nodes + edges.
 - **Add** (second row) — spawns **Input**, **LLM**, **Output**, **Join**, **Join⊕** (TOOLS merge), **Tee**, **Prefix**, **Pick**, **Retrieve**, **Agent**, or **Tool**; then wire ports manually.
-- **Import JSON** — Flow **v1** export (`version: 1`, nodes/edges) or ComfyUI workflow JSON.
+- **Import JSON** — Flow **v1** export (`version: 1`, nodes/edges) or portable workflow JSON (`nodes` + `links`).
 - **Export** — downloads the current graph as JSON (same shape as import v1).
 - **Fit** / **Run** / **From here** — fit view; **Run** walks the full DAG; **From here** re-runs the **selected** node and everything **downstream**, using **cached** upstream outputs (after a successful full run; **upstream** nodes must be unchanged since that run, but you can still edit the selected or downstream nodes). See *Technical challenges → Run (partial)*.
 
@@ -122,14 +122,14 @@ For **Stage B** the API can use **Drizzle + PostgreSQL** when `DATABASE_URL` is 
 - **Input routing:** Global shortcuts defer to `isTypableFieldFocused()` so typing in a node does not move the canvas.
 - **Editor semantics:** History snapshots + explicit commits; **Add** spawns `createAppNode` at viewport center; multi-select, marquee, drag-to-connect, **Delete** to remove, and clipboard round out authoring on the graph.
 - **Resilience:** React **error boundary** at the app root; optional **VITE_API_ORIGIN** for split deploys (see [DEPLOY.md](./DEPLOY.md)).
-- **Layout:** Port rows aligned in Comfy style (tight label + socket groups).
+- **Layout:** Port rows with tight label + socket groups (classic node-editor style).
 - **Large graphs (M5A):** Pan/zoom should not re-render every node; see [Performance (M5A)](#performance-m5a).
 
 ## Behavior (app pipeline)
 
 1. Edit **Input** and optional **System** on the **LLM** node, then **Run**.
 2. **Last run** and the **Output** node show the final `TEXT` when the run finishes.
-3. `?demo=comfy` on first load swaps in the Comfy simulation (`main.tsx`).
+3. `?demo=portable` on first load swaps in the portable workflow sample (`main.tsx`).
 
 ### App graph node types (topology + agents)
 

@@ -11,9 +11,9 @@ import { Toolbar } from './Toolbar'
 import { menuShortcutHint } from '../lib/menuShortcutHint'
 import { RightPanels } from './RightPanels'
 import { PersistenceManager } from './PersistenceManager'
-import { SAMPLE_COMFY_WORKFLOW } from '../data/sampleComfyWorkflow'
+import { SAMPLE_PORTABLE_WORKFLOW } from '../data/samplePortableWorkflow'
 import { DEFAULT_APP_GRAPH } from '../data/defaultAppGraph'
-import type { ComfyWorkflow } from '../types'
+import type { PortableWorkflow } from '../types'
 import { copySelection, getClipboard, buildPasteFromBuffer } from '../lib/clipboard'
 import { applyGraph, captureGraph } from '../lib/serializeGraph'
 import { resetHistoryToCurrent } from '../lib/graphHistory'
@@ -104,7 +104,7 @@ export function GraphEditor() {
     fitToView()
   }, [graphContentRevision, fitToView])
 
-  const onLoadWorkflow = useCallback((workflow: ComfyWorkflow) => {
+  const onLoadWorkflow = useCallback((workflow: PortableWorkflow) => {
     loadWorkflow(workflow)
   }, [loadWorkflow])
 
@@ -316,13 +316,13 @@ export function GraphEditor() {
                   type="button"
                   className="btn graph-editor-empty-cta"
                   onClick={() => {
-                    loadWorkflow(SAMPLE_COMFY_WORKFLOW)
+                    loadWorkflow(SAMPLE_PORTABLE_WORKFLOW)
                     resetHistoryToCurrent()
                     const r = useGraphStore.getState().graphContentRevision
-                    openLocalGraph('Comfy sample', r)
+                    openLocalGraph('Portable workflow sample', r)
                   }}
                 >
-                  Comfy sample
+                  Portable sample
                 </button>
               </div>
             </div>

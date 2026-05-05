@@ -5,7 +5,7 @@ import type {
   NodeId,
   EdgeId,
   ViewportState,
-  ComfyWorkflow,
+  PortableWorkflow,
   Point,
 } from '../types'
 import type { AppGraphState } from '../data/defaultAppGraph'
@@ -43,7 +43,7 @@ interface GraphStore {
   /** If edges are selected, remove them. Else remove selected nodes (and their edges). */
   deleteSelected: () => void
 
-  loadWorkflow: (workflow: ComfyWorkflow) => void
+  loadWorkflow: (workflow: PortableWorkflow) => void
   loadAppGraph: (graph: AppGraphState) => void
   setNodeWidgetValue: (id: NodeId, index: number, value: unknown) => void
   mergeNodesAndEdges: (addNodes: GraphNode[], addEdges: GraphEdge[], selectNew?: boolean) => void

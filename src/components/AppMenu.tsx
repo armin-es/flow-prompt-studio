@@ -1,5 +1,5 @@
 import { ChevronDown, Loader2, Menu } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useGraphStore } from '../store/graphStore'
 import {
   applyGraph,
@@ -15,14 +15,68 @@ import { apiFetch } from '../lib/apiFetch'
 import { getClerkTokenOptional } from '../lib/clerkTokenRegistry'
 import { resetHistoryToCurrent } from '../lib/graphHistory'
 import { isTypableFieldFocused } from '../lib/domUtils'
-import { APP_TEMPLATE_ENTRIES } from '../lib/appTemplates'
+import {
+  APP_TEMPLATE_ENTRIES,
+  type AppTemplateEntry,
+  type TemplateCtx,
+} from '../lib/appTemplates'
 import { menuShortcutHint } from '../lib/menuShortcutHint'
-import type { ComfyWorkflow } from '../types'
+import type { PortableWorkflow } from '../types'
 import { useDialog } from '../lib/dialog'
 import { iconPropsSm } from '../lib/lucideProps'
 
+const STARTER_TEMPLATES = APP_TEMPLATE_ENTRIES.filter((t) => t.category === 'starters')
+const ADVANCED_TEMPLATES = APP_TEMPLATE_ENTRIES.filter((t) => t.category === 'advanced')
+
+function isFlowSerializedGraphV1(p: unknown): p is SerializedGraph {
+  if (p === null || typeof p !== 'object') return false
+  const o = p as SerializedGraph
+  return o.version === 1 && Array.isArray(o.nodes) && Array.isArray(o.edges)
+}
+
+function isPortableWorkflowJson(p: unknown): p is PortableWorkflow {
+  if (p === null || typeof p !== 'object') return false
+  return 'nodes' in p && 'links' in p && Array.isArray((p as PortableWorkflow).nodes)
+}
+
+function TemplateMenuSection({
+  title,
+  entries,
+  templateCtx,
+  onTemplatePick,
+}: {
+  title: string
+  entries: AppTemplateEntry[]
+  templateCtx: TemplateCtx
+  onTemplatePick: (label: string) => void
+}) {
+  return (
+    <>
+      <div className="app-menu-section-label">{title}</div>
+      <div className="app-menu-section" role="none">
+        {entries.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            role="menuitem"
+            className="app-menu-item"
+            title={t.description}
+            onClick={() => {
+              t.apply(templateCtx)
+              onTemplatePick(t.label)
+            }}
+          >
+            <span className="app-menu-item-label">{t.label}</span>
+            <span className="app-menu-item-desc">{t.description}</span>
+          </button>
+        ))}
+      </div>
+    </>
+  )
+}
+
 export type AppMenuProps = {
-  onLoadWorkflow: (workflow: ComfyWorkflow) => void
+  onLoadWorkflow: (workflow: PortableWorkflow) => void
   onExportGraph: () => void
   /** Template or import: canvas no longer matches current server row */
   onLocalReplace: (displayName: string) => void
@@ -36,27 +90,24 @@ export function AppMenu({
   onServerGraphOpened,
 }: AppMenuProps) {
   const loadAppGraph = useGraphStore((s) => s.loadAppGraph)
-  const nodes = useGraphStore((s) => s.nodes)
+  const isSpamPipeline = useGraphStore((s) => {
+    for (const n of s.nodes.values()) {
+      if (n.type === 'AppSpamItemSource') return true
+    }
+    return false
+  })
   const [publishBusy, setPublishBusy] = useState(false)
   const dialog = useDialog()
   const [menuOpen, setMenuOpen] = useState(false)
   const menuWrapRef = useRef<HTMLDivElement>(null)
   const importInputRef = useRef<HTMLInputElement>(null)
-  const shortcutHint = useMemo(() => menuShortcutHint(), [])
+  const shortcutHint = menuShortcutHint()
 
-  const isSpamPipeline = useMemo(
-    () => Array.from(nodes.values()).some((n) => n.type === 'AppSpamItemSource'),
-    [nodes],
-  )
-
-  const templateCtx = useMemo(
-    () => ({
-      loadAppGraph,
-      loadComfy: onLoadWorkflow,
-      resetHistory: resetHistoryToCurrent,
-    }),
-    [loadAppGraph, onLoadWorkflow],
-  )
+  const templateCtx: TemplateCtx = {
+    loadAppGraph,
+    loadPortableWorkflow: onLoadWorkflow,
+    resetHistory: resetHistoryToCurrent,
+  }
 
   async function publishSpamPolicy(): Promise<void> {
     setPublishBusy(true)
@@ -94,19 +145,12 @@ export function AppMenu({
   }
 
   useEffect(() => {
-    if (!menuOpen) return
-
     function onDocMouseDown(ev: MouseEvent) {
       const el = menuWrapRef.current
       if (el && ev.target instanceof Node && !el.contains(ev.target)) {
         setMenuOpen(false)
       }
     }
-    document.addEventListener('mousedown', onDocMouseDown)
-    return () => document.removeEventListener('mousedown', onDocMouseDown)
-  }, [menuOpen])
-
-  useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (isTypableFieldFocused()) return
 
@@ -126,7 +170,13 @@ export function AppMenu({
       }
     }
     document.addEventListener('keydown', onKeyDown, true)
-    return () => document.removeEventListener('keydown', onKeyDown, true)
+    if (menuOpen) {
+      document.addEventListener('mousedown', onDocMouseDown)
+    }
+    return () => {
+      document.removeEventListener('keydown', onKeyDown, true)
+      document.removeEventListener('mousedown', onDocMouseDown)
+    }
   }, [menuOpen])
 
   async function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -141,16 +191,9 @@ export function AppMenu({
       await dialog.alert('Invalid JSON file', 'Import failed')
       return
     }
-    const p = parsed as { version?: number; nodes?: unknown; edges?: unknown } | ComfyWorkflow
-    if (
-      p &&
-      typeof p === 'object' &&
-      (p as SerializedGraph).version === 1 &&
-      Array.isArray((p as SerializedGraph).nodes) &&
-      Array.isArray((p as SerializedGraph).edges)
-    ) {
+    if (isFlowSerializedGraphV1(parsed)) {
       try {
-        applyGraph(p as SerializedGraph)
+        applyGraph(parsed)
         resetHistoryToCurrent()
         onLocalReplace('Imported graph')
         setMenuOpen(false)
@@ -163,28 +206,39 @@ export function AppMenu({
         return
       }
     }
-    if (
-      p &&
-      typeof p === 'object' &&
-      'nodes' in p &&
-      'links' in p &&
-      Array.isArray((p as ComfyWorkflow).nodes)
-    ) {
-      onLoadWorkflow(p as ComfyWorkflow)
+    if (isPortableWorkflowJson(parsed)) {
+      onLoadWorkflow(parsed)
       resetHistoryToCurrent()
-      onLocalReplace('Imported Comfy workflow')
+      onLocalReplace('Imported portable workflow')
       setMenuOpen(false)
       return
     }
     await dialog.alert(
-      'Unrecognized format — use a Flow v1 export or a ComfyUI workflow JSON.',
+      'Unrecognized format — use a Flow v1 export or portable workflow JSON (nodes + links).',
       'Import failed',
     )
   }
 
-  const starters = APP_TEMPLATE_ENTRIES.filter((t) => t.category === 'starters')
-  const advanced = APP_TEMPLATE_ENTRIES.filter((t) => t.category === 'advanced')
+  async function openGraphByUuid(): Promise<void> {
+    const id = (await dialog.prompt('Paste server graph UUID', '', 'Open by ID'))?.trim()
+    if (!id) return
+    try {
+      const row = await loadFullServerGraph(id)
+      applyGraph(row.data)
+      resetHistoryToCurrent()
+      onServerGraphOpened(row.id, row.name)
+      setMenuOpen(false)
+    } catch (e) {
+      await dialog.alert(e instanceof Error ? e.message : 'Load failed', 'Load failed')
+    }
+  }
+
   const sync = serverSyncEnabled()
+
+  function handleTemplatePick(label: string) {
+    onLocalReplace(label)
+    setMenuOpen(false)
+  }
 
   return (
     <div className="toolbar-brand" ref={menuWrapRef}>
@@ -214,46 +268,18 @@ export function AppMenu({
           <div className="app-menu-hint">
             Templates · Import / Export{sync ? ' · Workflows live in the sidebar' : ''} — {shortcutHint}
           </div>
-          <div className="app-menu-section-label">Starters</div>
-          <div className="app-menu-section" role="none">
-            {starters.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                role="menuitem"
-                className="app-menu-item"
-                title={t.description}
-                onClick={() => {
-                  t.apply(templateCtx)
-                  onLocalReplace(t.label)
-                  setMenuOpen(false)
-                }}
-              >
-                <span className="app-menu-item-label">{t.label}</span>
-                <span className="app-menu-item-desc">{t.description}</span>
-              </button>
-            ))}
-          </div>
-          <div className="app-menu-section-label">Advanced</div>
-          <div className="app-menu-section" role="none">
-            {advanced.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                role="menuitem"
-                className="app-menu-item"
-                title={t.description}
-                onClick={() => {
-                  t.apply(templateCtx)
-                  onLocalReplace(t.label)
-                  setMenuOpen(false)
-                }}
-              >
-                <span className="app-menu-item-label">{t.label}</span>
-                <span className="app-menu-item-desc">{t.description}</span>
-              </button>
-            ))}
-          </div>
+          <TemplateMenuSection
+            title="Starters"
+            entries={STARTER_TEMPLATES}
+            templateCtx={templateCtx}
+            onTemplatePick={handleTemplatePick}
+          />
+          <TemplateMenuSection
+            title="Advanced"
+            entries={ADVANCED_TEMPLATES}
+            templateCtx={templateCtx}
+            onTemplatePick={handleTemplatePick}
+          />
           <div className="app-menu-divider" />
           <div className="app-menu-section-label">File</div>
           <div className="app-menu-section" role="none">
@@ -264,7 +290,7 @@ export function AppMenu({
               onClick={() => importInputRef.current?.click()}
             >
               <span className="app-menu-item-label">Import JSON</span>
-              <span className="app-menu-item-desc">Flow v1 graph or Comfy workflow</span>
+              <span className="app-menu-item-desc">Flow v1 graph or portable workflow JSON</span>
             </button>
             <button
               type="button"
@@ -287,19 +313,7 @@ export function AppMenu({
                   type="button"
                   role="menuitem"
                   className="app-menu-item"
-                  onClick={() => void (async () => {
-                    const id = (await dialog.prompt('Paste server graph UUID', '', 'Open by ID'))?.trim()
-                    if (!id) return
-                    try {
-                      const row = await loadFullServerGraph(id)
-                      applyGraph(row.data)
-                      resetHistoryToCurrent()
-                      onServerGraphOpened(row.id, row.name)
-                      setMenuOpen(false)
-                    } catch (e) {
-                      await dialog.alert(e instanceof Error ? e.message : 'Load failed', 'Load failed')
-                    }
-                  })()}
+                  onClick={() => void openGraphByUuid()}
                 >
                   <span className="app-menu-item-label">Load workflow by UUID</span>
                   <span className="app-menu-item-desc">GET /api/graphs/:id</span>
