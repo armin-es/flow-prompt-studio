@@ -78,7 +78,7 @@ export const APP_TEMPLATE_ENTRIES: AppTemplateEntry[] = [
   {
     id: 'spam',
     label: 'Spam pipeline',
-    description: 'Spam triage graph (needs DB + keys for full run)',
+    description: 'Spam triage v2: rules + retrieve examples/policy + judge + combine (matches server seed)',
     category: 'starters',
     apply: loadApp(SPAM_DEMO_GRAPH),
   },

@@ -20,7 +20,15 @@ export function nodeContentStamp(n: GraphNode): string {
   if (n.type === 'AppAgent') {
     return `AppAgent\0${JSON.stringify(n.widgetValues)}\0__volatile__`
   }
-  if (n.type === 'AppSpamRules' || n.type === 'AppSpamItemSource') {
+  if (
+    n.type === 'AppSpamRules' ||
+    n.type === 'AppSpamItemSource' ||
+    n.type === 'SpamRetrieveExamples' ||
+    n.type === 'SpamRetrievePolicy' ||
+    n.type === 'SpamJudge' ||
+    n.type === 'SpamCombine' ||
+    n.type === 'SpamVerdict'
+  ) {
     return `${n.type}\0__volatile__`
   }
   return `${n.type}\0${JSON.stringify(n.widgetValues)}`
@@ -37,7 +45,15 @@ export function buildNodeStampsForGraph(
           ? crypto.randomUUID()
           : `run-${Date.now()}`
       out[n.id] = `AppAgent\0${JSON.stringify(n.widgetValues)}\0${suffix}`
-    } else if (n.type === 'AppSpamRules' || n.type === 'AppSpamItemSource') {
+    } else if (
+      n.type === 'AppSpamRules' ||
+      n.type === 'AppSpamItemSource' ||
+      n.type === 'SpamRetrieveExamples' ||
+      n.type === 'SpamRetrievePolicy' ||
+      n.type === 'SpamJudge' ||
+      n.type === 'SpamCombine' ||
+      n.type === 'SpamVerdict'
+    ) {
       const suffix =
         typeof crypto !== 'undefined' && crypto.randomUUID
           ? crypto.randomUUID()

@@ -12,6 +12,11 @@ export const APP_TEXT_NODE_TYPES = [
   'AppRetrieve',
   'AppSpamRules',
   'AppSpamItemSource',
+  'SpamRetrieveExamples',
+  'SpamRetrievePolicy',
+  'SpamJudge',
+  'SpamCombine',
+  'SpamVerdict',
 ] as const
 
 export type AppTextNodeType = (typeof APP_TEXT_NODE_TYPES)[number]

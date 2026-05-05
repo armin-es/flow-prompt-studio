@@ -3,7 +3,7 @@ import { and, desc, eq, inArray, sql as dsql } from 'drizzle-orm'
 import type { Context } from 'hono'
 import { Hono } from 'hono'
 import { z } from 'zod'
-import { getDb } from '../db/client.js'
+import { getDb, getPool } from '../db/client.js'
 import {
   graphs,
   spamCategories,
@@ -26,6 +26,12 @@ import {
   queueSpamStageB,
   runSpamStageB,
 } from './spamStageB.js'
+import { combineSpamStageB } from './spamCombineStageB.js'
+import { spamJudgeResultZ } from '../../src/lib/spamJudgeResult.js'
+import {
+  execSpamRetrieveExamples,
+  execSpamRetrievePolicy,
+} from './spamRetrieveExec.js'
 
 const ingestBody = z.object({
   source: z.string().min(1).max(200),
@@ -57,6 +63,17 @@ const listQuery = z.object({
 const evaluateBody = z.object({
   body: z.string().min(1).max(65_536),
   authorFeatures: z.record(z.unknown()).optional(),
+})
+
+const spamRetrieveBody = z.object({
+  query: z.string().min(1).max(65_536),
+  categoryId: z.string().max(200).optional().nullable(),
+  k: z.coerce.number().int().min(1).max(10).optional().default(5),
+})
+
+const spamCombineBody = z.object({
+  rulesJson: z.string().min(1).max(128_000),
+  judgeJson: z.string().min(1).max(128_000),
 })
 
 const decisionBody = z.object({
@@ -339,6 +356,109 @@ export function createSpamApp(): Hono {
     )
     const derivedStatus = deriveStatusAfterRules(score)
     return c.json({ score, matches, derivedStatus })
+  })
+
+  r.post('/retrieve/examples', async (c) => {
+    const db = getDb()
+    const pool = getPool()
+    if (db == null || pool == null) return c.json(noDb(), 503)
+    let body: unknown
+    try {
+      body = await c.req.json()
+    } catch {
+      return c.json({ error: 'Invalid JSON' }, 400)
+    }
+    const parsed = spamRetrieveBody.safeParse(body)
+    if (!parsed.success) {
+      return c.json({ error: parsed.error.flatten() }, 400)
+    }
+    const uid = userId(c)
+    await ensureUserCategoryAndRules(db, uid)
+    const categoryId = parsed.data.categoryId?.trim() || null
+    const k = parsed.data.k ?? 5
+    try {
+      const { rows } = await execSpamRetrieveExamples(
+        db,
+        pool,
+        uid,
+        parsed.data.query,
+        categoryId,
+        k,
+        undefined,
+      )
+      return c.json({ rows })
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      return c.json({ error: msg }, 400)
+    }
+  })
+
+  r.post('/retrieve/policy', async (c) => {
+    const db = getDb()
+    const pool = getPool()
+    if (db == null || pool == null) return c.json(noDb(), 503)
+    let body: unknown
+    try {
+      body = await c.req.json()
+    } catch {
+      return c.json({ error: 'Invalid JSON' }, 400)
+    }
+    const parsed = spamRetrieveBody.safeParse(body)
+    if (!parsed.success) {
+      return c.json({ error: parsed.error.flatten() }, 400)
+    }
+    const uid = userId(c)
+    await ensureUserCategoryAndRules(db, uid)
+    const categoryId = parsed.data.categoryId?.trim() || null
+    const k = parsed.data.k ?? 5
+    try {
+      const { rows } = await execSpamRetrievePolicy(
+        db,
+        pool,
+        uid,
+        parsed.data.query,
+        categoryId,
+        k,
+        undefined,
+      )
+      return c.json({ rows })
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      return c.json({ error: msg }, 400)
+    }
+  })
+
+  r.post('/combine', async (c) => {
+    const db = getDb()
+    if (db == null) return c.json(noDb(), 503)
+    void db
+    let body: unknown
+    try {
+      body = await c.req.json()
+    } catch {
+      return c.json({ error: 'Invalid JSON' }, 400)
+    }
+    const parsed = spamCombineBody.safeParse(body)
+    if (!parsed.success) {
+      return c.json({ error: parsed.error.flatten() }, 400)
+    }
+    try {
+      const rulesObj = JSON.parse(parsed.data.rulesJson) as { score?: unknown }
+      const ruleScore = Number(rulesObj.score ?? 0)
+      const judge = spamJudgeResultZ.parse(JSON.parse(parsed.data.judgeJson) as unknown)
+      const combined = combineSpamStageB(ruleScore, judge)
+      return c.json({
+        finalAction: combined.finalAction,
+        llmScore: combined.llmScore,
+        ruleScore,
+        verdict: judge.verdict,
+        confidence: judge.confidence,
+        rationale: judge.rationale,
+      })
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      return c.json({ error: msg }, 400)
+    }
   })
 
   r.get('/rules', async (c) => {

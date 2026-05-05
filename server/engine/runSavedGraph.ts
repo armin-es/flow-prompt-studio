@@ -2,6 +2,7 @@ import type OpenAI from 'openai'
 import { topologicalSort } from '../../src/engine/topologicalSort.js'
 import type { SerializedGraphJson } from '../db/schema.js'
 import type { SpamDb } from '../spam/spamBaselineRules.js'
+import type { SpamStageBAccum } from '../spam/spamRetrieveExec.js'
 import { graphMapsFromSerialized } from './parseSerializedGraph.js'
 import { getExecutor, type ServerNodeOutput } from './serverExecutors.js'
 
@@ -11,6 +12,10 @@ export type RunSavedGraphOptions = {
   openaiModel?: string
   signal?: AbortSignal
   stageBLlmAugment?: { userPayload: Record<string, unknown> }
+  /** Filled by SpamRetrieve* nodes during Stage B v2 runs. */
+  spamStageBAccum?: SpamStageBAccum
+  /** When SpamRetrieve* category widgets/inputs are empty, Stage B uses the queued item's category. */
+  spamItemCategoryId?: string | null
 }
 
 /** Port outputs keyed as `${nodeId}:${portIndex}` (same convention as the client runner). */
@@ -57,6 +62,8 @@ export async function runSavedGraph(
     openai: options.openai,
     openaiModel: options.openaiModel,
     stageBLlmAugment: options.stageBLlmAugment,
+    spamStageBAccum: options.spamStageBAccum,
+    spamItemCategoryId: options.spamItemCategoryId ?? null,
   }
 
   try {

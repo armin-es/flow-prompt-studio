@@ -22,6 +22,11 @@ export type CreatableAppNodeType =
   | 'AppRetrieve'
   | 'AppSpamRules'
   | 'AppSpamItemSource'
+  | 'SpamRetrieveExamples'
+  | 'SpamRetrievePolicy'
+  | 'SpamJudge'
+  | 'SpamCombine'
+  | 'SpamVerdict'
   | 'AppAgent'
   | 'AppTool'
 
@@ -144,6 +149,63 @@ export function createAppNode(
         ],
         widgetValues: [''],
       }
+    case 'SpamRetrieveExamples':
+      return {
+        ...base,
+        type: 'SpamRetrieveExamples',
+        inputs: [
+          { name: 'body', dataType: TEXT },
+          { name: 'categoryId', dataType: TEXT },
+        ],
+        outputs: [{ name: 'passages', dataType: TEXT }],
+        widgetValues: ['', 5],
+      }
+    case 'SpamRetrievePolicy':
+      return {
+        ...base,
+        type: 'SpamRetrievePolicy',
+        inputs: [
+          { name: 'body', dataType: TEXT },
+          { name: 'categoryId', dataType: TEXT },
+        ],
+        outputs: [{ name: 'passages', dataType: TEXT }],
+        widgetValues: ['', 3],
+      }
+    case 'SpamJudge':
+      return {
+        ...base,
+        type: 'SpamJudge',
+        inputs: [
+          { name: 'body', dataType: TEXT },
+          { name: 'features JSON', dataType: TEXT },
+          { name: 'examples', dataType: TEXT },
+          { name: 'policy', dataType: TEXT },
+        ],
+        outputs: [{ name: 'verdict JSON', dataType: TEXT }],
+        widgetValues: ['gpt-4o-mini', 0, 0],
+      }
+    case 'SpamCombine':
+      return {
+        ...base,
+        type: 'SpamCombine',
+        inputs: [
+          { name: 'rules JSON', dataType: TEXT },
+          { name: 'judge JSON', dataType: TEXT },
+        ],
+        outputs: [{ name: 'combined JSON', dataType: TEXT }],
+        widgetValues: [],
+      }
+    case 'SpamVerdict':
+      return {
+        ...base,
+        type: 'SpamVerdict',
+        inputs: [
+          { name: 'combined JSON', dataType: TEXT },
+          { name: 'itemId', dataType: TEXT },
+        ],
+        outputs: [],
+        widgetValues: ['', true],
+      }
     case 'AppToolsJoin':
       return {
         ...base,
@@ -212,6 +274,16 @@ function defaultLabel(t: CreatableAppNodeType): string {
       return 'Spam rules'
     case 'AppSpamItemSource':
       return 'Spam item'
+    case 'SpamRetrieveExamples':
+      return 'Spam · retrieve examples'
+    case 'SpamRetrievePolicy':
+      return 'Spam · retrieve policy'
+    case 'SpamJudge':
+      return 'Spam · judge'
+    case 'SpamCombine':
+      return 'Spam · combine'
+    case 'SpamVerdict':
+      return 'Spam · verdict (sink)'
     case 'AppToolsJoin':
       return 'Join (tools)'
     case 'AppAgent':
@@ -244,6 +316,15 @@ function defaultWidth(t: CreatableAppNodeType): number {
       return 300
     case 'AppSpamItemSource':
       return 260
+    case 'SpamRetrieveExamples':
+    case 'SpamRetrievePolicy':
+      return 300
+    case 'SpamJudge':
+      return 340
+    case 'SpamCombine':
+      return 320
+    case 'SpamVerdict':
+      return 280
     case 'AppAgent':
       return 340
     case 'AppTool':
@@ -278,6 +359,15 @@ function defaultHeight(t: CreatableAppNodeType): number {
       return 200
     case 'AppSpamItemSource':
       return 160
+    case 'SpamRetrieveExamples':
+    case 'SpamRetrievePolicy':
+      return 170
+    case 'SpamJudge':
+      return 260
+    case 'SpamCombine':
+      return 160
+    case 'SpamVerdict':
+      return 140
     case 'AppAgent':
       return 420
     case 'AppTool':

@@ -12,7 +12,9 @@
   "include": [
     "server/**/*.ts",
     "src/engine/retrieve/chunk.ts",
+    "src/engine/retrieve/formatRetrieveOutput.ts",
     "src/engine/topologicalSort.ts",
+    "src/lib/spamJudgeResult.ts",
     "src/types/index.ts"
   ]
 }

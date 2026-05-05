@@ -46,6 +46,31 @@ const GROUPS: { label: string; items: PaletteItem[] }[] = [
         short: 'Spam item',
         title: 'Load spam queue row by UUID (GET /api/spam/items/:id)',
       },
+      {
+        type: 'SpamRetrieveExamples',
+        short: 'Spam ex.',
+        title: 'Retrieve confirmed-spam examples (cosine, tenant corpora)',
+      },
+      {
+        type: 'SpamRetrievePolicy',
+        short: 'Spam policy',
+        title: 'Retrieve policy excerpts (cosine, tenant corpora)',
+      },
+      {
+        type: 'SpamJudge',
+        short: 'Spam judge',
+        title: 'Structured LLM classifier (JSON verdict)',
+      },
+      {
+        type: 'SpamCombine',
+        short: 'Spam combine',
+        title: 'Merge rule score + judge JSON (deterministic)',
+      },
+      {
+        type: 'SpamVerdict',
+        short: 'Spam verdict',
+        title: 'Sink placeholder (Stage B persists outside this node)',
+      },
     ],
   },
   {
