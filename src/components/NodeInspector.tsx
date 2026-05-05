@@ -1,8 +1,133 @@
 import { useGraphStore } from '../store/graphStore'
+import { useExecutionStore } from '../store/executionStore'
 import { useShallow } from 'zustand/react/shallow'
 import { useHistoryStore } from '../store/historyStore'
 import { APP_INSPECTOR_TYPES } from '../data/appTextNodes'
 import { RetrieveCorpusControls } from './RetrieveCorpusControls'
+import type { GraphNode } from '../types'
+import type { NodeOutput } from '../store/executionStore'
+
+const INSPECTOR_TEXT_PREVIEW = 12_000
+
+function truncateText(s: string, max: number): string {
+  if (s.length <= max) return s
+  return `${s.slice(0, max)}…`
+}
+
+function InspectorPortOutputPreview({
+  portLabel,
+  output,
+}: {
+  portLabel: string
+  output: NodeOutput
+}) {
+  const typ = String(output.type ?? '')
+  if (typ === 'TEXT') {
+    const text = String((output as { text?: string }).text ?? '')
+    const hits = (output as { retrieveHits?: { citationIndex: number; label: string; score: number }[] })
+      .retrieveHits
+    return (
+      <div>
+        <div className="node-inspector-output-port-label">{portLabel}</div>
+        <pre className="node-inspector-output-pre">{truncateText(text, INSPECTOR_TEXT_PREVIEW)}</pre>
+        {hits != null && hits.length > 0 && (
+          <ul className="node-inspector-output-hits">
+            {hits.slice(0, 12).map((h) => (
+              <li key={h.citationIndex}>
+                <span className="node-inspector-output-hit-label">
+                  [{h.citationIndex}] {h.label}
+                </span>
+                <span className="node-inspector-output-hit-score">{h.score.toFixed(4)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    )
+  }
+  if (typ === 'TOOLS') {
+    const tools = (output as { tools?: unknown[] }).tools
+    const n = Array.isArray(tools) ? tools.length : 0
+    return (
+      <div>
+        <div className="node-inspector-output-port-label">{portLabel}</div>
+        <pre className="node-inspector-output-pre">{`TOOLS (${n} definition${n === 1 ? '' : 's'})`}</pre>
+      </div>
+    )
+  }
+  let raw: string
+  try {
+    raw = truncateText(JSON.stringify(output, null, 2), INSPECTOR_TEXT_PREVIEW)
+  } catch {
+    raw = truncateText(String(output), INSPECTOR_TEXT_PREVIEW)
+  }
+  return (
+    <div>
+      <div className="node-inspector-output-port-label">{portLabel}</div>
+      <pre className="node-inspector-output-pre">{raw}</pre>
+    </div>
+  )
+}
+
+function NodeInspectorLastRunOutputs({ nodeId, node }: { nodeId: string; node: GraphNode }) {
+  const execState = useExecutionStore((s) => s.nodeStates.get(nodeId))
+
+  if (!execState || execState.status === 'idle') {
+    return (
+      <p className="node-inspector-hint node-inspector-hint--outputs">
+        After you <strong>Run</strong>, this node&apos;s outputs appear here (TEXT is scrollable). The{' '}
+        <strong>Last run</strong> panel below still shows only the <em>final</em> sink summary.
+      </p>
+    )
+  }
+
+  if (execState.status === 'running') {
+    return (
+      <div className="node-inspector-run-output">
+        <h4 className="node-inspector-subtitle">Outputs</h4>
+        <p className="node-inspector-hint">Running…</p>
+      </div>
+    )
+  }
+
+  if (execState.status === 'error') {
+    return (
+      <div className="node-inspector-run-output node-inspector-run-output--error">
+        <h4 className="node-inspector-subtitle">Last run on this node</h4>
+        <p className="node-inspector-output-error" role="alert">
+          {execState.error}
+        </p>
+      </div>
+    )
+  }
+
+  const outs = execState.outputs
+  const indices = Object.keys(outs)
+    .map((k) => Number(k))
+    .filter((n) => Number.isInteger(n))
+    .sort((a, b) => a - b)
+
+  if (indices.length === 0) {
+    return (
+      <p className="node-inspector-hint">No outputs recorded for this node in the last run.</p>
+    )
+  }
+
+  return (
+    <div className="node-inspector-run-output">
+      <h4 className="node-inspector-subtitle">Outputs (last run)</h4>
+      {indices.map((pi) => {
+        const o = outs[pi]
+        if (!o) return null
+        const portLabel =
+          node.outputs[pi]?.name != null && String(node.outputs[pi]!.name).length > 0
+            ? `${node.outputs[pi]!.name} (port ${pi})`
+            : `Port ${pi}`
+        return <InspectorPortOutputPreview key={pi} portLabel={portLabel} output={o} />
+      })}
+    </div>
+  )
+}
 
 /**
  * Pinned right panel for a single selected node (widgets mirrored from the node for editing without zooming the canvas).
@@ -59,8 +184,8 @@ export function NodeInspector() {
       )}
       {node.type === 'AppOutput' && (
         <p className="node-inspector-hint">
-          The output text appears on the node and in the Last run panel after a successful
-          run.
+          Sink node: upstream TEXT is summarized in <strong>Last run</strong> below. Select any upstream node to
+          see its full outputs in <strong>Outputs (last run)</strong>.
         </p>
       )}
       {node.type === 'AppTee' && (
@@ -315,6 +440,7 @@ export function NodeInspector() {
           </label>
         </>
       )}
+      <NodeInspectorLastRunOutputs nodeId={id} node={node} />
     </aside>
   )
 }

@@ -66,6 +66,83 @@ html, body, #root {
   line-height: 1.4;
 }
 
+.node-inspector-hint--outputs {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #313244;
+  font-size: 11px;
+}
+
+.node-inspector-subtitle {
+  font-size: 11px;
+  font-weight: 700;
+  color: #89dceb;
+  margin: 10px 0 6px;
+}
+
+.node-inspector-run-output {
+  margin-top: 8px;
+  padding-top: 10px;
+  border-top: 1px solid #313244;
+}
+
+.node-inspector-run-output--error .node-inspector-output-error {
+  font-size: 11px;
+  color: #f38ba8;
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.node-inspector-output-port-label {
+  font-size: 9px;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: #6c7086;
+  margin: 10px 0 4px;
+}
+
+.node-inspector-output-pre {
+  margin: 0;
+  padding: 8px;
+  background: #11111b;
+  border: 1px solid #313244;
+  border-radius: 6px;
+  font-size: 11px;
+  line-height: 1.35;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: min(320px, 42vh);
+  overflow: auto;
+  color: #bac2de;
+}
+
+.node-inspector-output-hits {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  font-size: 10px;
+}
+
+.node-inspector-output-hits li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 3px 0;
+  border-bottom: 1px solid #1e1e2e;
+  color: #a6adc8;
+}
+
+.node-inspector-output-hit-score {
+  flex-shrink: 0;
+  color: #6c7086;
+  font-variant-numeric: tabular-nums;
+}
+
+.node-inspector-output-hit-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .run-result-runid {
   font-size: 9px;
   color: #6c7086;
