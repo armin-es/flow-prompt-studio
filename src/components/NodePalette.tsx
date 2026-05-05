@@ -47,6 +47,11 @@ const GROUPS: { label: string; items: PaletteItem[] }[] = [
         title: 'Load spam queue row by UUID (GET /api/spam/items/:id)',
       },
       {
+        type: 'AppSpamPasteSource',
+        short: 'Spam paste',
+        title: 'Paste body + author fields (builds features JSON; same outputs as Spam item)',
+      },
+      {
         type: 'SpamRetrieveExamples',
         short: 'Spam ex.',
         title: 'Retrieve confirmed-spam examples (cosine, tenant corpora)',

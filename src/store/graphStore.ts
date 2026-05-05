@@ -9,6 +9,7 @@ import type {
   Point,
 } from '../types'
 import type { AppGraphState } from '../data/defaultAppGraph'
+import { normalizeGraphNode, dropEdgesTargetingSpamPasteSource } from '../lib/normalizeGraphNode'
 
 type SelectNodeOpts = { additive?: boolean; toggle?: boolean }
 
@@ -346,7 +347,7 @@ export const useGraphStore = create<GraphStore>()((set, get) => ({
     const nodes = new Map<NodeId, GraphNode>()
     const edges = new Map<EdgeId, GraphEdge>()
     for (const n of graph.nodes) {
-      nodes.set(n.id, { ...n })
+      nodes.set(n.id, normalizeGraphNode({ ...n }))
     }
     for (const e of graph.edges) {
       const edge: GraphEdge = {
@@ -358,6 +359,7 @@ export const useGraphStore = create<GraphStore>()((set, get) => ({
       }
       edges.set(edge.id, edge)
     }
+    dropEdgesTargetingSpamPasteSource(edges, nodes)
     set((state) => ({
       nodes,
       edges,

@@ -368,6 +368,51 @@ export function NodeInspector() {
           />
         </label>
       )}
+      {node.type === 'AppSpamPasteSource' && (
+        <>
+          <label className="node-inspector-field">
+            <span>Post body</span>
+            <textarea
+              className="node-widget-textarea"
+              value={String(node.widgetValues[0] ?? '')}
+              placeholder="Paste post or comment text…"
+              onChange={(e) => setNodeWidgetValue(node.id, 0, e.target.value)}
+              onBlur={() => useHistoryStore.getState().commit()}
+              rows={6}
+              spellCheck={false}
+            />
+          </label>
+          <label className="node-inspector-field">
+            <span>Account age (days)</span>
+            <input
+              className="node-widget-input"
+              type="number"
+              value={String(node.widgetValues[1] ?? 0)}
+              onChange={(e) =>
+                setNodeWidgetValue(node.id, 1, Math.trunc(Number(e.target.value) || 0))
+              }
+              onBlur={() => useHistoryStore.getState().commit()}
+            />
+          </label>
+          <label className="node-inspector-field">
+            <span>Prior strikes</span>
+            <input
+              className="node-widget-input"
+              type="number"
+              min={0}
+              value={String(node.widgetValues[2] ?? 0)}
+              onChange={(e) =>
+                setNodeWidgetValue(node.id, 2, Math.max(0, Math.trunc(Number(e.target.value) || 0)))
+              }
+              onBlur={() => useHistoryStore.getState().commit()}
+            />
+          </label>
+          <p className="node-inspector-hint">
+            Same outputs as <strong>Spam item</strong>. Port 1 emits{' '}
+            <code>account_age_days</code> and <code>prior_strikes</code> as JSON for Stage A rules.
+          </p>
+        </>
+      )}
       {node.type === 'AppSpamRules' && (
         <p className="node-inspector-hint">
           Connect <strong>body</strong> (TEXT). Optional <strong>features JSON</strong> for{' '}

@@ -22,6 +22,7 @@ export type CreatableAppNodeType =
   | 'AppRetrieve'
   | 'AppSpamRules'
   | 'AppSpamItemSource'
+  | 'AppSpamPasteSource'
   | 'SpamRetrieveExamples'
   | 'SpamRetrievePolicy'
   | 'SpamJudge'
@@ -149,6 +150,21 @@ export function createAppNode(
         ],
         widgetValues: [''],
       }
+    case 'AppSpamPasteSource':
+      return {
+        ...base,
+        type: 'AppSpamPasteSource',
+        inputs: [],
+        outputs: [
+          { name: 'body', dataType: TEXT },
+          { name: 'features JSON', dataType: TEXT },
+        ],
+        widgetValues: [
+          'Paste a post or comment to classify.\n\nExample: Limited offer — click my link to double your engagement!',
+          0,
+          0,
+        ],
+      }
     case 'SpamRetrieveExamples':
       return {
         ...base,
@@ -274,6 +290,8 @@ function defaultLabel(t: CreatableAppNodeType): string {
       return 'Spam rules'
     case 'AppSpamItemSource':
       return 'Spam item'
+    case 'AppSpamPasteSource':
+      return 'Spam paste'
     case 'SpamRetrieveExamples':
       return 'Spam · retrieve examples'
     case 'SpamRetrievePolicy':
@@ -316,6 +334,8 @@ function defaultWidth(t: CreatableAppNodeType): number {
       return 300
     case 'AppSpamItemSource':
       return 260
+    case 'AppSpamPasteSource':
+      return 300
     case 'SpamRetrieveExamples':
     case 'SpamRetrievePolicy':
       return 300
@@ -359,6 +379,8 @@ function defaultHeight(t: CreatableAppNodeType): number {
       return 200
     case 'AppSpamItemSource':
       return 160
+    case 'AppSpamPasteSource':
+      return 300
     case 'SpamRetrieveExamples':
     case 'SpamRetrievePolicy':
       return 170

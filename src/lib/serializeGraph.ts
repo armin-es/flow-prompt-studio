@@ -1,6 +1,8 @@
 import { useGraphStore } from '../store/graphStore'
 import type { GraphEdge, GraphNode, EdgeId, NodeId } from '../types'
 
+import { normalizeGraphNode, dropEdgesTargetingSpamPasteSource } from './normalizeGraphNode'
+
 export interface SerializedGraph {
   version: 1
   nodes: [NodeId, GraphNode][]
@@ -22,9 +24,12 @@ export function captureGraph(): SerializedGraph {
 
 export function applyGraph(data: SerializedGraph): void {
   const nextRev = useGraphStore.getState().graphContentRevision + 1
+  const nodes = new Map(data.nodes.map(([id, n]) => [id, normalizeGraphNode(n)]))
+  const edges = new Map(data.edges)
+  dropEdgesTargetingSpamPasteSource(edges, nodes)
   useGraphStore.setState({
-    nodes: new Map(data.nodes),
-    edges: new Map(data.edges),
+    nodes,
+    edges,
     selection: new Set(data.selection),
     edgeSelection: new Set(data.edgeSelection),
     graphContentRevision: nextRev,

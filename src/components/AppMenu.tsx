@@ -92,7 +92,7 @@ export function AppMenu({
   const loadAppGraph = useGraphStore((s) => s.loadAppGraph)
   const isSpamPipeline = useGraphStore((s) => {
     for (const n of s.nodes.values()) {
-      if (n.type === 'AppSpamItemSource') return true
+      if (n.type === 'AppSpamItemSource' || n.type === 'AppSpamPasteSource') return true
     }
     return false
   })

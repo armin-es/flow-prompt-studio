@@ -19,6 +19,7 @@ import {
   type SpamStageBAccum,
 } from '../spam/spamRetrieveExec.js'
 import type { GraphNode } from '../../src/types/index.js'
+import { spamPasteOutputs } from '../../src/engine/spamPasteSource.js'
 
 export type ServerRetrieveHit = {
   citationIndex: number
@@ -124,6 +125,12 @@ export const serverExecutors: Record<string, ServerExecutor> = {
       0: { type: 'TEXT', text: body },
       1: { type: 'TEXT', text: featJson },
     }
+  },
+
+  AppSpamPasteSource: async (node, inputs, ctx) => {
+    void inputs
+    void ctx
+    return spamPasteOutputs(node)
   },
 
   AppSpamRules: async (_node, inputs, ctx) => {

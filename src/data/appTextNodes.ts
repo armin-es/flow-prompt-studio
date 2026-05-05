@@ -12,6 +12,7 @@ export const APP_TEXT_NODE_TYPES = [
   'AppRetrieve',
   'AppSpamRules',
   'AppSpamItemSource',
+  'AppSpamPasteSource',
   'SpamRetrieveExamples',
   'SpamRetrievePolicy',
   'SpamJudge',

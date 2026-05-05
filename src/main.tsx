@@ -57,11 +57,13 @@ async function bootstrap() {
           // Remember the graph ID so the toolbar can offer "Publish spam policy"
           try { localStorage.setItem('flow-prompt-spam-pipeline-id', pj.graphId) } catch { /* ignore */ }
           const g = await loadGraphFromServer(pj.graphId)
-          // Pre-fill SpamItemSource widget with the item UUID
+          // Pre-fill SpamItemSource widget with the item UUID (production seed uses ItemSource)
           const nodes = g.nodes.map(([id, node]): [string, GraphNode] => {
             if (id === 'spam-src') {
               const n = node as GraphNode
-              return [id, { ...n, widgetValues: [itemId] }]
+              if (n.type === 'AppSpamItemSource') {
+                return [id, { ...n, widgetValues: [itemId] }]
+              }
             }
             return [id, node as GraphNode]
           })
@@ -76,7 +78,7 @@ async function bootstrap() {
     } catch {
       // Fallback: local SPAM_DEMO_GRAPH template with item pre-filled
       const nodes = SPAM_DEMO_GRAPH.nodes.map((n) => {
-        if (n.id === 'spam-src') {
+        if (n.id === 'spam-src' && n.type === 'AppSpamItemSource') {
           return { ...n, widgetValues: [itemId] }
         }
         return n

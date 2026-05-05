@@ -258,6 +258,61 @@ function NodeComponentImpl({ nodeId }: Props) {
         </div>
       )}
 
+      {n.type === 'AppSpamPasteSource' && (
+        <div
+          className="node-widget"
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <label className="node-widget-label" htmlFor={`w-spam-body-${n.id}`}>
+            Body
+          </label>
+          <textarea
+            id={`w-spam-body-${n.id}`}
+            className="node-widget-textarea"
+            value={String(n.widgetValues[0] ?? '')}
+            onChange={(e) => setNodeWidgetValue(n.id, 0, e.target.value)}
+            onBlur={commitW}
+            rows={3}
+            placeholder="Sample post text"
+            spellCheck={false}
+            aria-label="Spam paste sample body"
+          />
+          <label className="node-widget-label" htmlFor={`w-spam-age-${n.id}`}>
+            Age (days)
+          </label>
+          <input
+            id={`w-spam-age-${n.id}`}
+            className="node-widget-input"
+            type="number"
+            value={String(n.widgetValues[1] ?? 0)}
+            onChange={(e) =>
+              setNodeWidgetValue(n.id, 1, Math.trunc(Number(e.target.value) || 0))
+            }
+            onBlur={commitW}
+            aria-label="Account age in days"
+          />
+          <label className="node-widget-label" htmlFor={`w-spam-strikes-${n.id}`}>
+            Strikes
+          </label>
+          <input
+            id={`w-spam-strikes-${n.id}`}
+            className="node-widget-input"
+            type="number"
+            min={0}
+            value={String(n.widgetValues[2] ?? 0)}
+            onChange={(e) =>
+              setNodeWidgetValue(
+                n.id,
+                2,
+                Math.max(0, Math.trunc(Number(e.target.value) || 0)),
+              )
+            }
+            onBlur={commitW}
+            aria-label="Prior strikes count"
+          />
+        </div>
+      )}
+
       {n.type === 'AppLlm' && (
         <div
           className="node-widget"

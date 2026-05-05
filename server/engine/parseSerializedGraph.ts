@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import type { SerializedGraphJson } from '../db/schema.js'
 import type { GraphEdge, GraphNode } from '../../src/types/index.js'
+import { normalizeGraphNode, dropEdgesTargetingSpamPasteSource } from '../../src/lib/normalizeGraphNode.js'
 
 const portSchema = z.object({
   name: z.string(),
@@ -43,7 +44,7 @@ export function graphMapsFromSerialized(
     if (gn.id !== nid) {
       return { ok: false, error: `Node id mismatch: key ${nid} vs node.id ${gn.id}` }
     }
-    nodes.set(nid, gn)
+    nodes.set(nid, normalizeGraphNode(gn as GraphNode))
   }
   const edges = new Map<string, GraphEdge>()
   for (const [eid, raw] of data.edges) {
@@ -57,5 +58,6 @@ export function graphMapsFromSerialized(
     }
     edges.set(eid, ge)
   }
+  dropEdgesTargetingSpamPasteSource(edges, nodes)
   return { ok: true, nodes, edges }
 }

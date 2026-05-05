@@ -3,6 +3,7 @@ import { getExecutor } from './executors'
 import type { GraphNode } from '../types'
 import type { NodeOutput } from '../store/executionStore'
 import { useCorpusStore, __clearCorpusStoreForTests } from '../store/corpusStore'
+import { migrateSpamPasteWidgets } from './spamPasteSource'
 
 const signal = new AbortController().signal
 const noProg = () => {}
@@ -96,5 +97,56 @@ describe('AppTee / AppJoin / AppPrefix / AppPick', () => {
     expect(o0.text).toContain("I don't know")
     expect(o0.text).toContain('xyzzyplugh')
     expect(o0.retrieveHits?.length).toBeGreaterThan(0)
+  })
+})
+
+describe('migrateSpamPasteWidgets', () => {
+  it('maps legacy JSON string to numeric widgets', () => {
+    expect(
+      migrateSpamPasteWidgets([
+        'post',
+        '{"account_age_days": 12, "prior_strikes": 2}',
+      ]),
+    ).toEqual(['post', 12, 2])
+  })
+
+  it('keeps three-slot shape', () => {
+    expect(migrateSpamPasteWidgets(['x', 5, 1])).toEqual(['x', 5, 1])
+  })
+})
+
+describe('AppSpamPasteSource', () => {
+  it('emits body and JSON features from separate widgets', async () => {
+    const ex = getExecutor('AppSpamPasteSource')
+    const out = await ex(
+      n('AppSpamPasteSource', ['hello', 7, 1]),
+      {},
+      noProg,
+      { signal },
+    )
+    expect((out[0] as { text?: string }).text).toBe('hello')
+    expect((out[1] as { text?: string }).text).toBe(
+      '{\n  "account_age_days": 7,\n  "prior_strikes": 1\n}',
+    )
+  })
+
+  it('defaults missing numeric widgets to 0', async () => {
+    const ex = getExecutor('AppSpamPasteSource')
+    const out = await ex(
+      n('AppSpamPasteSource', ['only body']),
+      {},
+      noProg,
+      { signal },
+    )
+    expect((out[1] as { text?: string }).text).toBe(
+      '{\n  "account_age_days": 0,\n  "prior_strikes": 0\n}',
+    )
+  })
+
+  it('rejects empty body', async () => {
+    const ex = getExecutor('AppSpamPasteSource')
+    await expect(
+      ex(n('AppSpamPasteSource', ['  ', 0, 0]), {}, noProg, { signal }),
+    ).rejects.toThrow(/enter sample post body/i)
   })
 })

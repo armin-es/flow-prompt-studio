@@ -45,4 +45,11 @@ describe('createAppNode', () => {
     expect(n.widgetValues[2]).toBe(800)
     expect(n.widgetValues[4]).toBe('bm25')
   })
+
+  it('AppSpamPasteSource has no inputs and three widgets', () => {
+    const node = createAppNode('AppSpamPasteSource', { x: 0, y: 0 })
+    expect(node.inputs).toHaveLength(0)
+    expect(node.outputs).toHaveLength(2)
+    expect(node.widgetValues).toHaveLength(3)
+  })
 })

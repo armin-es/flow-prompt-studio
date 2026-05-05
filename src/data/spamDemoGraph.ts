@@ -2,10 +2,11 @@ import type { AppGraphState } from './defaultAppGraph'
 
 /**
  * Spam triage pipeline (Stage A rules + retrieval + SpamJudge + SpamCombine).
- * Matches the server seed `SPAM_DEFAULT_GRAPH_DATA` in `server/spam/spamStageB.ts`.
+ * Local demo uses `AppSpamPasteSource` so you can run without a queue row; the server seed
+ * `SPAM_DEFAULT_GRAPH_DATA` in `server/spam/spamStageB.ts` keeps `AppSpamItemSource` for Stage B.
  *
  * Layout:
- *   [SpamItemSource] ─┬─► [SpamRules] ────────────────┐
+ *   [SpamPasteSource] ─┬─► [SpamRules] ────────────────┐
  *                     ├─► [SpamRetrieveExamples] ──┐  │
  *                     ├─► [SpamRetrievePolicy] ──┐ │  │
  *                     └─► body/feats ───────────► [SpamJudge] ─► [SpamCombine] ─► [Output]
@@ -15,17 +16,17 @@ export const SPAM_DEMO_GRAPH: AppGraphState = {
   nodes: [
     {
       id: 'spam-src',
-      type: 'AppSpamItemSource',
-      label: 'Spam item',
+      type: 'AppSpamPasteSource',
+      label: 'Spam paste',
       position: { x: 40, y: 200 },
-      width: 280,
-      height: 170,
+      width: 300,
+      height: 260,
       inputs: [],
       outputs: [
         { name: 'body', dataType: 'TEXT' },
         { name: 'features JSON', dataType: 'TEXT' },
       ],
-      widgetValues: [''],
+      widgetValues: ['Limited offer — click my link to double your engagement!', 3, 0],
     },
     {
       id: 'spam-rules',

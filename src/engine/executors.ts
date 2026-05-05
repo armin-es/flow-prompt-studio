@@ -27,6 +27,7 @@ import { rankChunksForQuery } from './retrieve/rankRetrieve'
 import { apiFetch } from '../lib/apiFetch'
 import { apiPath } from '../lib/serverApi'
 import { spamJudgeResultZ } from '../lib/spamJudgeResult'
+import { spamPasteOutputs } from './spamPasteSource'
 
 const SPAM_USER_HEADER = { 'X-User-Id': 'dev' }
 
@@ -501,6 +502,13 @@ const executors: Record<string, ExecutorFn> = {
       0: { type: 'TEXT', text: body },
       1: { type: 'TEXT', text: featJson },
     }
+  },
+
+  AppSpamPasteSource: async (node, inputs, onProgress, ctx) => {
+    void inputs
+    void onProgress
+    void ctx
+    return spamPasteOutputs(node)
   },
 
   SpamRetrieveExamples: async (node, inputs, onProgress, ctx) => {

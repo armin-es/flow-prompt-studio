@@ -14,6 +14,8 @@
     "src/engine/retrieve/chunk.ts",
     "src/engine/retrieve/formatRetrieveOutput.ts",
     "src/engine/topologicalSort.ts",
+    "src/engine/spamPasteSource.ts",
+    "src/lib/normalizeGraphNode.ts",
     "src/lib/spamJudgeResult.ts",
     "src/types/index.ts"
   ]
